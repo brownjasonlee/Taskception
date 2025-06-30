@@ -79,6 +79,7 @@ export interface TodoItemProps {
   onDelete: (id: string) => void;
   onUpdate: (id: string, title: string) => void;
   onAddChild: (title: string, parentId: string) => void;
+  onAddSibling: (title: string, parentId: string | undefined) => void;
   onToggleExpanded: (id: string) => void;
   isAllChildrenCompleted: (todo: Todo) => boolean;
   hasCompletedParent: boolean;
@@ -86,4 +87,5 @@ export interface TodoItemProps {
   removeTodoIfEmpty: (id: string, currentTitle: string) => void;
   delayedOverId: string | null;
   delayedOverPosition: 'before' | 'after' | 'inside' | null;
+  parentId: string | undefined;
 }

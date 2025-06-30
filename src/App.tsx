@@ -46,6 +46,7 @@ function App() {
           onDelete={deleteTodo}
           onUpdate={updateTodo}
           onAddChild={handleAddChild}
+          onAddSibling={addTodo}
           onToggleExpanded={toggleExpanded}
           isAllChildrenCompleted={isAllChildrenCompleted}
           onAddTodo={addTodo}

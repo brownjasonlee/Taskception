@@ -8,7 +8,7 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: [
-      'easy-llamas-own.loca.lt'
+      'slow-ears-scream.loca.lt'
     ],
   }
 })

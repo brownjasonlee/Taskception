@@ -12,6 +12,7 @@ interface TodoListProps {
   onDelete: (id: string) => void;
   onUpdate: (id: string, title: string) => void;
   onAddChild: (title: string, parentId: string) => void;
+  onAddSibling: (title: string, parentId: string | undefined) => void;
   onToggleExpanded: (id: string) => void;
   isAllChildrenCompleted: (todo: Todo) => boolean;
   onAddTodo: (title: string) => void;
@@ -27,6 +28,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   onDelete,
   onUpdate,
   onAddChild,
+  onAddSibling,
   onToggleExpanded,
   isAllChildrenCompleted,
   onAddTodo,
@@ -200,6 +202,7 @@ export const TodoList: React.FC<TodoListProps> = ({
             onDelete={onDelete}
             onUpdate={onUpdate}
             onAddChild={onAddChild}
+            onAddSibling={onAddSibling}
             onToggleExpanded={onToggleExpanded}
             isAllChildrenCompleted={isAllChildrenCompleted}
             hasCompletedParent={false}
@@ -207,6 +210,7 @@ export const TodoList: React.FC<TodoListProps> = ({
             removeTodoIfEmpty={removeTodoIfEmpty}
             delayedOverId={delayedOverId}
             delayedOverPosition={delayedOverPosition}
+            parentId={undefined}
           />
         ))}
 
@@ -235,6 +239,7 @@ export const TodoList: React.FC<TodoListProps> = ({
                     onDelete={onDelete}
                     onUpdate={onUpdate}
                     onAddChild={onAddChild}
+                    onAddSibling={onAddSibling}
                     onToggleExpanded={onToggleExpanded}
                     isAllChildrenCompleted={isAllChildrenCompleted}
                     hasCompletedParent={false}
@@ -242,6 +247,7 @@ export const TodoList: React.FC<TodoListProps> = ({
                     removeTodoIfEmpty={removeTodoIfEmpty}
                     delayedOverId={delayedOverId}
                     delayedOverPosition={delayedOverPosition}
+                    parentId={undefined}
                   />
                 ))}
               </div>

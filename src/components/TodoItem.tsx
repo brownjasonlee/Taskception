@@ -11,13 +11,15 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   onDelete,
   onUpdate,
   onAddChild,
+  onAddSibling,
   onToggleExpanded,
   isAllChildrenCompleted,
   hasCompletedParent,
   editingTodoId,
   removeTodoIfEmpty,
   delayedOverId,
-  delayedOverPosition
+  delayedOverPosition,
+  parentId
 }) => {
   const [isEditing, setIsEditing] = useState(editingTodoId === todo.id);
   const [editTitle, setEditTitle] = useState(todo.title);
@@ -80,7 +82,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   const canComplete = !hasChildren || isAllChildrenCompleted(todo);
   const canUncheck = todo.completed && !hasCompletedParent;
-  const indentLevel = level * 16;
+  const indentLevel = level * 12; // Reduced from 16px to 12px per level
 
   // Handle double tap for editing
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -107,7 +109,29 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleEdit();
+      e.preventDefault();
+      // Save current changes
+      if (editTitle.trim() === "") {
+        removeTodoIfEmpty(todo.id, editTitle);
+      } else if (editTitle !== todo.title) {
+        onUpdate(todo.id, editTitle.trim());
+      }
+      setIsEditing(false);
+      
+      // Create a new sibling todo at the same level
+      onAddSibling("", parentId);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      // Save current changes
+      if (editTitle.trim() === "") {
+        removeTodoIfEmpty(todo.id, editTitle);
+      } else if (editTitle !== todo.title) {
+        onUpdate(todo.id, editTitle.trim());
+      }
+      setIsEditing(false);
+      
+      // Create a new child todo
+      onAddChild("", todo.id);
     } else if (e.key === 'Escape') {
       if (todo.title === "") {
         removeTodoIfEmpty(todo.id, todo.title);
@@ -187,7 +211,10 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       )}
       
       <div 
-        ref={setDragRef}
+        ref={(node) => {
+          setDragRef(node);
+          setDropRefInside(node);
+        }}
         style={{ 
           marginLeft: `${indentLevel}px`,
           ...dragStyle
@@ -239,7 +266,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         </button>
 
         <div 
-          ref={setDropRefInside}
           className={`flex-1 min-w-0 transition-all duration-200 `}
         >
           {isEditing ? (
@@ -337,9 +363,13 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       
       {todo.expanded && hasChildren && (
         <div 
-          className="border-l border-gray-200 dark:border-gray-700 pl-1 pt-1"
-          style={{ marginLeft: `${(level + 1) * 16}px` }}
+          className="pt-1 relative"
         >
+          {/* Vertical line positioned at the current level */}
+          <div 
+            className="absolute top-0 bottom-0 border-l border-gray-200 dark:border-gray-700"
+            style={{ left: `${indentLevel}px` }}
+          />
           <div className="space-y-1">
             {todo.children.map((childTodo) => (
               <TodoItem
@@ -350,6 +380,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
                 onDelete={onDelete}
                 onUpdate={onUpdate}
                 onAddChild={onAddChild}
+                onAddSibling={onAddSibling}
                 onToggleExpanded={onToggleExpanded}
                 isAllChildrenCompleted={isAllChildrenCompleted}
                 hasCompletedParent={todo.completed || hasCompletedParent}
@@ -357,6 +388,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
                 removeTodoIfEmpty={removeTodoIfEmpty}
                 delayedOverId={delayedOverId}
                 delayedOverPosition={delayedOverPosition}
+                parentId={todo.id}
               />
             ))}
           </div>
