@@ -153,14 +153,14 @@ export const useTodos = () => {
 
   const addTodoToTree = useCallback((todos: Todo[], parentId: string | undefined, newTodo: Todo): Todo[] => {
     if (!parentId) {
-      return [...todos, newTodo];
+      return [newTodo, ...todos];
     }
 
     return todos.map(todo => {
       if (todo.id === parentId) {
         return {
           ...todo,
-          children: [...todo.children, newTodo],
+          children: [newTodo, ...todo.children],
           expanded: true
         };
       }
@@ -203,7 +203,10 @@ export const useTodos = () => {
       }
       case 'delete': {
         const op = operation as DeleteOperation;
-        return addTodoToTree(newTodos, op.parentId ?? undefined, op.todo); // Re-add deleted todo
+        if (op.todo) {
+          return addTodoToTree(newTodos, op.parentId ?? undefined, op.todo);
+        }
+        return newTodos;
       }
       case 'update': {
         const op = operation as UpdateOperation;
@@ -500,7 +503,7 @@ export const useTodos = () => {
       });
     }
     setEditingTodoId(null);
-  }, [recordOperation, removeTodoFromTree]);
+  }, [removeTodoFromTree]);
 
   return {
     todos,
