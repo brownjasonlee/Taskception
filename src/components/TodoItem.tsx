@@ -22,12 +22,9 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const [isEditing, setIsEditing] = useState(editingTodoId === todo.id);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [isLongPressing, setIsLongPressing] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
   
   const inputRef = useRef<HTMLInputElement>(null);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (editingTodoId === todo.id && inputRef.current) {
@@ -85,57 +82,18 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const canUncheck = todo.completed && !hasCompletedParent;
   const indentLevel = level * 16;
 
-  // Touch event handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isEditing) return;
-    
-    touchStartTimeRef.current = Date.now();
-    setIsLongPressing(false);
-    
-    // Start long press timer
-    longPressTimerRef.current = setTimeout(() => {
-      setIsLongPressing(true);
-      // Add class to prevent body scroll
-      document.body.classList.add('drag-in-progress');
-      // Trigger haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-    }, 500); // 500ms for long press
-  };
-
+  // Handle double tap for editing
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-    }
-    
-    const touchDuration = Date.now() - touchStartTimeRef.current;
     const currentTime = Date.now();
     
     // Handle double tap for editing
-    if (touchDuration < 200) { // Quick tap
-      if (currentTime - lastTapTime < 300) { // Double tap detected
-        e.preventDefault();
-        if (!isDraggingThis && !isLongPressing) {
-          setIsEditing(true);
-        }
+    if (currentTime - lastTapTime < 300) { // Double tap detected
+      e.preventDefault();
+      if (!isDraggingThis) {
+        setIsEditing(true);
       }
-      setLastTapTime(currentTime);
     }
-    
-    // Remove drag class when touch ends
-    document.body.classList.remove('drag-in-progress');
-    setIsLongPressing(false);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    // Always prevent scrolling on touch move for todo items
-    e.preventDefault();
-    
-    // Cancel long press if user moves finger significantly before 500ms
-    if (longPressTimerRef.current && !isLongPressing) {
-      clearTimeout(longPressTimerRef.current);
-    }
+    setLastTapTime(currentTime);
   };
 
   const handleEdit = () => {
@@ -198,15 +156,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const showDropHighlightBefore = showDropHighlight && delayedOverPosition === 'before';
   const showDropHighlightAfter = showDropHighlight && delayedOverPosition === 'after';
 
-  // Clean up timer and drag class on unmount
-  useEffect(() => {
-    return () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-      }
-      document.body.classList.remove('drag-in-progress');
-    };
-  }, []);
+
 
   if (isDraggingThis && !isActive) {
     return (
@@ -250,16 +200,10 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             : 'bg-white dark:bg-gray-800'
         } ${
           showDropHighlightInside ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
-        } ${
-          isLongPressing ? 'ring-2 ring-blue-400 scale-105 shadow-lg' : ''
-        } ${
-          isLongPressing || isDraggingThis ? 'touch-drag-active' : ''
         }`}
         {...attributes}
         {...listeners}
-        onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        onTouchMove={handleTouchMove}
       >
         <div className="w-4 flex-shrink-0">
           <button

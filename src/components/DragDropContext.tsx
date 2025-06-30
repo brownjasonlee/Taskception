@@ -65,7 +65,7 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 500, // 500ms delay for touch to start drag (long press)
-        tolerance: 5, // Allow 5px of movement during delay
+        tolerance: 10, // Allow 10px of movement during delay for touch precision
       },
     })
   );
