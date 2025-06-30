@@ -36,7 +36,7 @@ export interface AddOperation extends BaseOperation {
 
 export interface DeleteOperation extends BaseOperation {
   type: 'delete';
-  todo: Todo;
+  todo?: Todo;
   parentId?: string;
   previousIndex?: number; // To restore position
 }

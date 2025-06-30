@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { ChevronRight, Plus } from 'lucide-react';
+import React from 'react';
+import { ChevronRight } from 'lucide-react';
 import { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
 import { Todo } from '../types/todo';
 import { TodoItem } from './TodoItem';
-import { AddTodoForm } from './AddTodoForm';
 import { TodoDragDropProvider } from './DragDropContext';
 
 interface TodoListProps {
@@ -16,6 +15,8 @@ interface TodoListProps {
   isAllChildrenCompleted: (todo: Todo) => boolean;
   onAddTodo: (title: string) => void;
   moveTodo: (draggedId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => void;
+  editingTodoId: string | null;
+  removeTodoIfEmpty: (id: string, currentTitle: string) => void;
 }
 
 export const TodoList: React.FC<TodoListProps> = ({
@@ -27,18 +28,14 @@ export const TodoList: React.FC<TodoListProps> = ({
   onToggleExpanded,
   isAllChildrenCompleted,
   onAddTodo,
-  moveTodo
+  moveTodo,
+  editingTodoId,
+  removeTodoIfEmpty
 }) => {
-  const [showCompleted, setShowCompleted] = useState(true);
-  const [isAddingTodo, setIsAddingTodo] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeTodo, setActiveTodo] = useState<Todo | null>(null);
-  const [dragTimer, setDragTimer] = useState<NodeJS.Timeout | null>(null);
-
-  const handleAddTodo = (title: string) => {
-    onAddTodo(title);
-    setIsAddingTodo(false);
-  };
+  const [showCompleted, setShowCompleted] = React.useState(true);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [activeTodo, setActiveTodo] = React.useState<Todo | null>(null);
+  const [dragTimer, setDragTimer] = React.useState<NodeJS.Timeout | null>(null);
 
   const findTodoById = (todos: Todo[], id: string): Todo | null => {
     for (const todo of todos) {
@@ -113,28 +110,12 @@ export const TodoList: React.FC<TodoListProps> = ({
     }
   };
 
-  if (todos.length === 0 && !isAddingTodo) {
+  if (todos.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-gray-400 dark:text-gray-500 text-lg mb-4">
-          No todos yet
+          No todos yet. Click the + button in the header to add your first todo.
         </div>
-        <button
-          onClick={() => setIsAddingTodo(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200"
-        >
-          <Plus size={16} />
-          Add your first todo
-        </button>
-        {isAddingTodo && (
-          <div className="mt-4 max-w-sm mx-auto">
-            <AddTodoForm
-              onAdd={handleAddTodo}
-              onCancel={() => setIsAddingTodo(false)}
-              placeholder="Enter todo title..."
-            />
-          </div>
-        )}
       </div>
     );
   }
@@ -157,24 +138,6 @@ export const TodoList: React.FC<TodoListProps> = ({
       isAllChildrenCompleted={isAllChildrenCompleted}
     >
       <div className="space-y-1">
-        <div className="mb-4">
-          {!isAddingTodo ? (
-            <button
-              onClick={() => setIsAddingTodo(true)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-left text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200"
-            >
-              <Plus size={16} />
-              <span>Add new todo...</span>
-            </button>
-          ) : (
-            <AddTodoForm
-              onAdd={handleAddTodo}
-              onCancel={() => setIsAddingTodo(false)}
-              placeholder="Enter todo title..."
-            />
-          )}
-        </div>
-
         {incompleteTodos.map((todo) => (
           <TodoItem
             key={todo.id}
@@ -187,6 +150,8 @@ export const TodoList: React.FC<TodoListProps> = ({
             onToggleExpanded={onToggleExpanded}
             isAllChildrenCompleted={isAllChildrenCompleted}
             hasCompletedParent={false}
+            editingTodoId={editingTodoId}
+            removeTodoIfEmpty={removeTodoIfEmpty}
           />
         ))}
 
@@ -198,14 +163,12 @@ export const TodoList: React.FC<TodoListProps> = ({
                 className="flex items-center gap-2 w-full text-left text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-200"
               >
                 <ChevronRight 
-                  size={14} 
+                  size={16}
                   className={`transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
                 />
                 <span>Completed ({completedTodos.length})</span>
-                <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600 ml-2"></div>
               </button>
             </div>
-
             {showCompleted && (
               <div className="space-y-1">
                 {completedTodos.map((todo) => (
@@ -220,6 +183,8 @@ export const TodoList: React.FC<TodoListProps> = ({
                     onToggleExpanded={onToggleExpanded}
                     isAllChildrenCompleted={isAllChildrenCompleted}
                     hasCompletedParent={false}
+                    editingTodoId={editingTodoId}
+                    removeTodoIfEmpty={removeTodoIfEmpty}
                   />
                 ))}
               </div>

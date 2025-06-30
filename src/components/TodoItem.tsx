@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRight, Plus, Trash2, Info } from 'lucide-react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Todo } from '../types/todo';
-import { AddTodoForm } from './AddTodoForm';
 import { useDragDrop } from './DragDropContext';
 
 interface TodoItemProps {
@@ -16,6 +15,8 @@ interface TodoItemProps {
   isAllChildrenCompleted: (todo: Todo) => boolean;
   hasCompletedParent: boolean;
   isDragging?: boolean;
+  editingTodoId: string | null;
+  removeTodoIfEmpty: (id: string, currentTitle: string) => void;
 }
 
 export const TodoItem: React.FC<TodoItemProps> = ({
@@ -28,12 +29,20 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   onToggleExpanded,
   isAllChildrenCompleted,
   hasCompletedParent,
-  isDragging = false
+  isDragging = false,
+  editingTodoId,
+  removeTodoIfEmpty
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isAddingChild, setIsAddingChild] = useState(false);
+  const [isEditing, setIsEditing] = useState(editingTodoId === todo.id);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [showTooltip, setShowTooltip] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingTodoId === todo.id && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editingTodoId, todo.id]);
 
   const { activeId } = useDragDrop();
   const isActive = activeId === todo.id;
@@ -62,22 +71,14 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     disabled: isDragging || isActive || todo.completed
   });
 
-  const { setNodeRef: setBeforeDropRef, isOver: isOverBefore } = useDroppable({
-    id: `${todo.id}-before`,
-    disabled: isDragging || isActive
-  });
-
-  const { setNodeRef: setAfterDropRef, isOver: isOverAfter } = useDroppable({
-    id: `${todo.id}-after`,
-    disabled: isDragging || isActive
-  });
-
   const canComplete = !hasChildren || isAllChildrenCompleted(todo);
   const canUncheck = todo.completed && !hasCompletedParent;
   const indentLevel = level * 20;
 
   const handleEdit = () => {
-    if (editTitle.trim() && editTitle !== todo.title) {
+    if (editTitle.trim() === "") {
+      removeTodoIfEmpty(todo.id, editTitle);
+    } else if (editTitle !== todo.title) {
       onUpdate(todo.id, editTitle.trim());
     }
     setIsEditing(false);
@@ -87,7 +88,11 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     if (e.key === 'Enter') {
       handleEdit();
     } else if (e.key === 'Escape') {
-      setEditTitle(todo.title);
+      if (todo.title === "") {
+        removeTodoIfEmpty(todo.id, todo.title);
+      } else {
+        setEditTitle(todo.title);
+      }
       setIsEditing(false);
     }
   };
@@ -98,9 +103,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     }
   };
 
-  const handleAddChild = (title: string) => {
-    onAddChild(title, todo.id);
-    setIsAddingChild(false);
+  const handleAddChildClick = () => {
+    onAddChild("", todo.id);
   };
 
   const handleToggle = () => {
@@ -137,15 +141,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   return (
     <div className="todo-item group relative">
-      {/* Drop indicator before */}
-      <div
-        ref={setBeforeDropRef}
-        className={`absolute -top-1 left-0 right-0 h-2 transition-all duration-200 ${
-          isOverBefore ? 'bg-blue-500 rounded-full opacity-100' : 'opacity-0'
-        }`}
-        style={{ marginLeft: `${indentLevel}px` }}
-      />
-
       <div 
         ref={isDragging ? undefined : setDragRef}
         style={{ 
@@ -205,6 +200,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         >
           {isEditing ? (
             <input
+              ref={inputRef}
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
@@ -234,6 +230,15 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         </div>
 
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 min-w-[72px]">
+          {!todo.completed && (
+            <button
+              onClick={handleAddChildClick}
+              className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
+              aria-label="Add child todo"
+            >
+              <Plus size={14} />
+            </button>
+          )}
           <div className="relative">
             <button
               onMouseEnter={() => setShowTooltip(true)}
@@ -245,24 +250,13 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             </button>
             
             {showTooltip && (
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
-                <div className="space-y-1">
-                  <div><strong>Created:</strong> {formatDate(todo.createdAt)}</div>
-                  <div><strong>Completed:</strong> {formatDate(todo.endDate)}</div>
-                </div>
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-700 p-3 rounded-lg shadow-lg z-20 text-xs text-gray-700 dark:text-gray-300 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <p><strong>Created:</strong> {formatDate(todo.createdAt)}</p>
+                <p><strong>Last Updated:</strong> {formatDate(todo.updatedAt)}</p>
+                {todo.endDate && <p><strong>Completed:</strong> {formatDate(todo.endDate)}</p>}
               </div>
             )}
           </div>
-
-          <button
-            onClick={() => setIsAddingChild(true)}
-            className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
-            aria-label="Add subtask"
-          >
-            <Plus size={14} />
-          </button>
-          
           <button
             onClick={() => onDelete(todo.id)}
             className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200"
@@ -273,28 +267,9 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         </div>
       </div>
 
-      {/* Drop indicator after */}
-      <div
-        ref={setAfterDropRef}
-        className={`absolute -bottom-1 left-0 right-0 h-2 transition-all duration-200 ${
-          isOverAfter ? 'bg-blue-500 rounded-full opacity-100' : 'opacity-0'
-        }`}
-        style={{ marginLeft: `${indentLevel}px` }}
-      />
-
-      {isAddingChild && (
-        <div style={{ marginLeft: `${indentLevel + 20}px` }} className="mt-1">
-          <AddTodoForm
-            onAdd={handleAddChild}
-            onCancel={() => setIsAddingChild(false)}
-            placeholder="Enter subtask title..."
-          />
-        </div>
-      )}
-
-      {hasChildren && todo.expanded && (
-        <div className="mt-1 space-y-1">
-          {todo.children.map((child) => (
+      {todo.expanded && hasChildren && (
+        <div className="space-y-1 mt-1">
+          {todo.children.map(child => (
             <TodoItem
               key={child.id}
               todo={child}
@@ -305,7 +280,9 @@ export const TodoItem: React.FC<TodoItemProps> = ({
               onAddChild={onAddChild}
               onToggleExpanded={onToggleExpanded}
               isAllChildrenCompleted={isAllChildrenCompleted}
-              hasCompletedParent={todo.completed || hasCompletedParent}
+              hasCompletedParent={todo.completed}
+              editingTodoId={editingTodoId}
+              removeTodoIfEmpty={removeTodoIfEmpty}
             />
           ))}
         </div>
