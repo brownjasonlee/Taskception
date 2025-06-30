@@ -28,12 +28,12 @@
 @layer components {
   .todo-item {
     @apply transition-all duration-200 ease-in-out;
-    touch-action: manipulation; /* Industry standard for draggable elements */
+    touch-action: none; /* Required for reliable iOS Safari drag support */
   }
 
   /* Prevent double-tap zoom on buttons and interactive elements */
   button, .todo-item, [role="button"] {
-    touch-action: manipulation;
+    touch-action: none; /* Required for reliable mobile drag */
     -webkit-tap-highlight-color: transparent;
   }
   

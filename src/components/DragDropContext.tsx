@@ -4,7 +4,7 @@ import {
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -56,8 +56,33 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
   onToggleExpanded,
   isAllChildrenCompleted
 }) => {
+  // Prevent scrolling during drag operations
+  React.useEffect(() => {
+    const preventScroll = (e: TouchEvent) => {
+      if (activeId) {
+        e.preventDefault();
+      }
+    };
+
+    if (activeId) {
+      document.addEventListener('touchmove', preventScroll, { passive: false });
+      document.body.style.overflow = 'hidden';
+      // Haptic feedback for drag start
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    } else {
+      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = '';
+    };
+  }, [activeId]);
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 8, // Require 8px of movement before drag starts
       },
