@@ -268,7 +268,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   }
 
   return (
-    <div className={`todo-item group relative ${isEditing ? 'editing' : ''}`}>
+    <div className={`todo-item group relative ${isEditing ? 'editing' : ''} ${todo.completed ? 'completed' : ''}`}>
       {/* Before drop zone - invisible area above the todo item */}
       <div
         ref={setDropRefBefore}
@@ -340,9 +340,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           )}
         </button>
 
-        <div 
-          className={`flex-1 min-w-0 transition-all duration-200 `}
-        >
+        {/* Text content - spans full width */}
+        <div className="flex-1 min-w-0 relative">
           {isEditing ? (
             <input
               ref={inputRef}
@@ -359,77 +358,84 @@ export const TodoItem: React.FC<TodoItemProps> = ({
               autoFocus
             />
           ) : (
-            <span
-              onDoubleClick={handleDoubleClick}
-              onTouchEnd={(e) => {
-                const currentTime = Date.now();
-                if (currentTime - lastTapTime < 300) {
-                  e.preventDefault();
-                  if (!isDraggingThis) {
-                    setIsEditing(true);
+            <>
+              <span
+                onDoubleClick={handleDoubleClick}
+                onTouchEnd={(e) => {
+                  const currentTime = Date.now();
+                  if (currentTime - lastTapTime < 300) {
+                    e.preventDefault();
+                    if (!isDraggingThis) {
+                      setIsEditing(true);
+                    }
                   }
-                }
-                setLastTapTime(currentTime);
-              }}
-              className={`block truncate text-sm cursor-pointer select-none ${
-                todo.completed
-                  ? 'line-through text-gray-500 dark:text-gray-400'
-                  : 'text-gray-900 dark:text-white'
-              }`}
-              title="Double-click or double-tap to edit • Hold down to drag"
-            >
-              {todo.title}
-              {showCompletionIndicator && (
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                  ({completedChildrenCount}/{totalChildrenCount})
-                </span>
-              )}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 min-w-[72px]">
-          {!todo.completed && (
-            <button
-              onClick={handleAddChildClick}
-              className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
-              aria-label="Add child todo"
-            >
-              <Plus size={14} />
-            </button>
-          )}
-          <div className="relative">
-            <button
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-              className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
-              aria-label="Task information"
-            >
-              <Info size={14} />
-            </button>
-            
-            {showTooltip && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 p-2 rounded-lg shadow-lg text-xs text-gray-700 dark:text-gray-200 z-10">
-                <p className="font-semibold">Created:</p>
-                <p>{formatDate(todo.createdAt)}</p>
-                <p className="font-semibold mt-2">Last Updated:</p>
-                <p>{formatDate(todo.updatedAt)}</p>
-                {todo.endDate && (
-                  <>
-                    <p className="font-semibold mt-2">Completed:</p>
-                    <p>{formatDate(todo.endDate)}</p>
-                  </>
+                  setLastTapTime(currentTime);
+                }}
+                className={`block truncate text-sm cursor-pointer select-none pr-4 group-hover:pr-24 transition-all duration-200 ${
+                  todo.completed
+                    ? 'line-through text-gray-500 dark:text-gray-400'
+                    : 'text-gray-900 dark:text-white'
+                }`}
+                title="Double-click or double-tap to edit • Hold down to drag"
+              >
+                {todo.title}
+                {showCompletionIndicator && (
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                    ({completedChildrenCount}/{totalChildrenCount})
+                  </span>
                 )}
+              </span>
+              
+              {/* Action buttons - positioned absolutely to overlay on hover */}
+              <div className={`absolute right-0 top-0 bottom-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pl-8 pr-2 ${
+                todo.completed 
+                  ? 'bg-gradient-to-l from-green-50 dark:from-green-900/20 via-green-50 dark:via-green-900/20 to-transparent'
+                  : 'bg-gradient-to-l from-white dark:from-gray-800 via-white dark:via-gray-800 to-transparent'
+              }`}>
+                {!todo.completed && (
+                  <button
+                    onClick={handleAddChildClick}
+                    className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
+                    aria-label="Add child todo"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+                <div className="relative">
+                  <button
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                    className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
+                    aria-label="Task information"
+                  >
+                    <Info size={14} />
+                  </button>
+                  
+                  {showTooltip && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 p-2 rounded-lg shadow-lg text-xs text-gray-700 dark:text-gray-200 z-10">
+                      <p className="font-semibold">Created:</p>
+                      <p>{formatDate(todo.createdAt)}</p>
+                      <p className="font-semibold mt-2">Last Updated:</p>
+                      <p>{formatDate(todo.updatedAt)}</p>
+                      {todo.endDate && (
+                        <>
+                          <p className="font-semibold mt-2">Completed:</p>
+                          <p>{formatDate(todo.endDate)}</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => onDelete(todo.id)}
+                  className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200"
+                  aria-label="Delete todo"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
-            )}
-          </div>
-          <button
-            onClick={() => onDelete(todo.id)}
-            className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200"
-            aria-label="Delete todo"
-          >
-            <Trash2 size={14} />
-          </button>
+            </>
+          )}
         </div>
       </div>
       
