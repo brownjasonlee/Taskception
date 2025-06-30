@@ -1,22 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRight, Plus, Trash2, Info } from 'lucide-react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { Todo } from '../types/todo';
-import { AddTodoForm } from './AddTodoForm';
+import { TodoItemProps } from '../types/todo';
 import { useDragDrop } from './DragDropContext';
-
-interface TodoItemProps {
-  todo: Todo;
-  level: number;
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-  onUpdate: (id: string, title: string) => void;
-  onAddChild: (title: string, parentId: string) => void;
-  onToggleExpanded: (id: string) => void;
-  isAllChildrenCompleted: (todo: Todo) => boolean;
-  hasCompletedParent: boolean;
-  isDragging?: boolean;
-}
 
 export const TodoItem: React.FC<TodoItemProps> = ({
   todo,
@@ -25,15 +11,40 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   onDelete,
   onUpdate,
   onAddChild,
+  onAddSibling,
   onToggleExpanded,
   isAllChildrenCompleted,
   hasCompletedParent,
-  isDragging = false
+  editingTodoId,
+  removeTodoIfEmpty,
+  delayedOverId,
+  delayedOverPosition,
+  parentId
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isAddingChild, setIsAddingChild] = useState(false);
+  const [isEditing, setIsEditing] = useState(editingTodoId === todo.id);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const [animationState, setAnimationState] = useState<'completing' | 'uncompleting' | null>(null);
+  const [swipeState, setSwipeState] = useState<{
+    isSwipping: boolean;
+    startX: number;
+    startY: number;
+    startTime: number;
+  }>({
+    isSwipping: false,
+    startX: 0,
+    startY: 0,
+    startTime: 0
+  });
+  
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingTodoId === todo.id && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editingTodoId, todo.id]);
 
   const { activeId } = useDragDrop();
   const isActive = activeId === todo.id;
@@ -47,7 +58,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     isDragging: isDraggingThis
   } = useDraggable({
     id: todo.id,
-    disabled: isDragging || isEditing
+    disabled: isActive || isEditing
   });
 
   const hasChildren = todo.children.length > 0;
@@ -57,27 +68,113 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const showCompletionIndicator = hasChildren && totalChildrenCount > 0;
 
   // Droppable setup for different drop zones
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
+  const {
+    setNodeRef: setDropRefInside,
+    // isOver: isOverInside // No longer directly used, relies on delayedOverId
+  } = useDroppable({
     id: `${todo.id}-drop`,
-    disabled: isDragging || isActive || todo.completed
+    disabled: isDraggingThis || isActive || todo.completed
   });
 
-  const { setNodeRef: setBeforeDropRef, isOver: isOverBefore } = useDroppable({
+  const {
+    setNodeRef: setDropRefBefore,
+    // isOver: isOverBefore // No longer directly used, relies on delayedOverId
+  } = useDroppable({
     id: `${todo.id}-before`,
-    disabled: isDragging || isActive
+    disabled: isDraggingThis || isActive || todo.completed
   });
 
-  const { setNodeRef: setAfterDropRef, isOver: isOverAfter } = useDroppable({
+  const {
+    setNodeRef: setDropRefAfter,
+    // isOver: isOverAfter // No longer directly used, relies on delayedOverId
+  } = useDroppable({
     id: `${todo.id}-after`,
-    disabled: isDragging || isActive
+    disabled: isDraggingThis || isActive || todo.completed
   });
 
   const canComplete = !hasChildren || isAllChildrenCompleted(todo);
   const canUncheck = todo.completed && !hasCompletedParent;
-  const indentLevel = level * 20;
+  const indentLevel = level * 12; // Reduced from 16px to 12px per level
+
+  // Only handle swipe gestures in edit mode - let dnd-kit handle drag detection otherwise
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Only track swipes when editing to avoid interfering with drag
+    if (isEditing && !isDraggingThis) {
+      const touch = e.touches[0];
+      setSwipeState({
+        isSwipping: false,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startTime: Date.now()
+      });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Only process swipes when editing
+    if (isEditing && !isDraggingThis && e.touches.length === 1) {
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - swipeState.startX;
+      const deltaY = touch.clientY - swipeState.startY;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // Mark as swiping if moved more than 20px
+      if (distance > 20) {
+        setSwipeState(prev => ({ ...prev, isSwipping: true }));
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const currentTime = Date.now();
+    
+    // Handle swipe gestures (only in edit mode and if we actually swiped)
+    if (isEditing && swipeState.isSwipping) {
+      const swipeDuration = currentTime - swipeState.startTime;
+      
+      if (swipeDuration < 500) {
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - swipeState.startX;
+        const deltaY = touch.clientY - swipeState.startY;
+        
+        // Check if it's primarily a horizontal swipe
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+          e.preventDefault();
+          
+          if (deltaX > 0) {
+            // Swipe right while editing = create child (Tab behavior)
+            // Save current changes first - only update if there's content
+            if (editTitle.trim() !== "" && editTitle !== todo.title) {
+              onUpdate(todo.id, editTitle.trim());
+            }
+            setIsEditing(false);
+            
+            // Only create child if current todo has content
+            if (todo.title.trim() !== "" || editTitle.trim() !== "") {
+              // Expand parent to show new child
+              if (!todo.expanded) {
+                onToggleExpanded(todo.id);
+              }
+              
+              // Create child todo and provide haptic feedback
+              onAddChild("", todo.id);
+              if (navigator.vibrate) {
+                navigator.vibrate(50); // Light haptic feedback
+              }
+            }
+          }
+          // Note: Could add swipe left for outdent/unindent in the future
+        }
+      }
+    }
+    
+    setSwipeState(prev => ({ ...prev, isSwipping: false }));
+  };
 
   const handleEdit = () => {
-    if (editTitle.trim() && editTitle !== todo.title) {
+    if (editTitle.trim() === "") {
+      removeTodoIfEmpty(todo.id, editTitle);
+    } else if (editTitle !== todo.title) {
       onUpdate(todo.id, editTitle.trim());
     }
     setIsEditing(false);
@@ -85,29 +182,68 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleEdit();
+      e.preventDefault();
+      // Save current changes - only update if there's content
+      if (editTitle.trim() !== "" && editTitle !== todo.title) {
+        onUpdate(todo.id, editTitle.trim());
+      }
+      setIsEditing(false);
+      
+      // Only create new sibling if current todo has content
+      if (todo.title.trim() !== "" || editTitle.trim() !== "") {
+        onAddSibling("", parentId);
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      // Save current changes - only update if there's content
+      if (editTitle.trim() !== "" && editTitle !== todo.title) {
+        onUpdate(todo.id, editTitle.trim());
+      }
+      setIsEditing(false);
+      
+      // Only create child if current todo has content
+      if (todo.title.trim() !== "" || editTitle.trim() !== "") {
+        // Expand parent to show new child
+        if (!todo.expanded) {
+          onToggleExpanded(todo.id);
+        }
+        onAddChild("", todo.id);
+      }
     } else if (e.key === 'Escape') {
-      setEditTitle(todo.title);
+      if (todo.title === "") {
+        removeTodoIfEmpty(todo.id, todo.title);
+      } else {
+        setEditTitle(todo.title);
+      }
       setIsEditing(false);
     }
   };
 
   const handleDoubleClick = () => {
-    if (!isDragging) {
+    if (!isDraggingThis) {
       setIsEditing(true);
     }
   };
 
-  const handleAddChild = (title: string) => {
-    onAddChild(title, todo.id);
-    setIsAddingChild(false);
+  const handleAddChildClick = () => {
+    onAddChild("", todo.id);
   };
 
   const handleToggle = () => {
     if (todo.completed && !canUncheck) {
       return;
     }
-    onToggle(todo.id);
+    
+    // Trigger animation based on current state
+    const willBeCompleted = !todo.completed;
+    setAnimationState(willBeCompleted ? 'completing' : 'uncompleting');
+    
+    // Delay the actual toggle to allow animation to play
+    setTimeout(() => {
+      onToggle(todo.id);
+      // Clear animation state after toggle
+      setTimeout(() => setAnimationState(null), 50);
+    }, 100); // Small delay to start the animation
   };
 
   const formatDate = (date: Date | undefined) => {
@@ -126,7 +262,14 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     zIndex: 1000
   } : undefined;
 
-  if (isDraggingThis && !isDragging) {
+  const showDropHighlight = delayedOverId === todo.id;
+  const showDropHighlightInside = showDropHighlight && delayedOverPosition === 'inside';
+  const showDropHighlightBefore = showDropHighlight && delayedOverPosition === 'before';
+  const showDropHighlightAfter = showDropHighlight && delayedOverPosition === 'after';
+
+
+
+  if (isDraggingThis && !isActive) {
     return (
       <div 
         style={{ marginLeft: `${indentLevel}px` }}
@@ -136,18 +279,29 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   }
 
   return (
-    <div className="todo-item group relative">
-      {/* Drop indicator before */}
+    <div className={`todo-item group relative ${isEditing ? 'editing' : ''} ${todo.completed ? 'completed' : ''} ${animationState || ''}`}>
+      {/* Before drop zone - invisible area above the todo item */}
       <div
-        ref={setBeforeDropRef}
-        className={`absolute -top-1 left-0 right-0 h-2 transition-all duration-200 ${
-          isOverBefore ? 'bg-blue-500 rounded-full opacity-100' : 'opacity-0'
+        ref={setDropRefBefore}
+        className={`absolute top-0 left-0 right-0 h-2 -mt-1 z-20 ${
+          showDropHighlightBefore ? 'bg-blue-100 dark:bg-blue-900' : ''
         }`}
         style={{ marginLeft: `${indentLevel}px` }}
       />
-
+      
+      {/* Visual indicator for before drop */}
+      {showDropHighlightBefore && (
+        <div 
+          className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full -mt-0.25 z-30"
+          style={{ marginLeft: `${indentLevel}px` }}
+        />
+      )}
+      
       <div 
-        ref={isDragging ? undefined : setDragRef}
+        ref={(node) => {
+          setDragRef(node);
+          setDropRefInside(node);
+        }}
         style={{ 
           marginLeft: `${indentLevel}px`,
           ...dragStyle
@@ -159,7 +313,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             ? 'bg-green-50 dark:bg-green-900/20 opacity-75' 
             : 'bg-white dark:bg-gray-800'
         } ${
-          isOver ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
+          showDropHighlightInside ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
         }`}
         {...attributes}
         {...listeners}
@@ -197,117 +351,153 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           )}
         </button>
 
-        <div 
-          ref={setDropRef}
-          className={`flex-1 min-w-0 transition-all duration-200 ${
-            isOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-1' : ''
-          }`}
-        >
+        {/* Text content - spans full width */}
+        <div className="flex-1 min-w-0 relative">
           {isEditing ? (
             <input
+              ref={inputRef}
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onBlur={handleEdit}
               onKeyDown={handleKeyPress}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
               className="w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ touchAction: 'manipulation' }}
               autoFocus
             />
           ) : (
-            <span
-              onDoubleClick={handleDoubleClick}
-              className={`block truncate text-sm cursor-pointer select-none ${
-                todo.completed
-                  ? 'line-through text-gray-500 dark:text-gray-400'
-                  : 'text-gray-900 dark:text-white'
-              }`}
-              title="Double-click to edit"
-            >
-              {todo.title}
-              {showCompletionIndicator && (
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                  ({completedChildrenCount}/{totalChildrenCount})
-                </span>
-              )}
-            </span>
+            <>
+              <span
+                onDoubleClick={handleDoubleClick}
+                onTouchEnd={(e) => {
+                  const currentTime = Date.now();
+                  if (currentTime - lastTapTime < 300) {
+                    e.preventDefault();
+                    if (!isDraggingThis) {
+                      setIsEditing(true);
+                    }
+                  }
+                  setLastTapTime(currentTime);
+                }}
+                className={`block truncate text-sm cursor-pointer select-none pr-4 group-hover:pr-24 transition-all duration-200 ${
+                  todo.completed
+                    ? 'line-through text-gray-500 dark:text-gray-400'
+                    : 'text-gray-900 dark:text-white'
+                }`}
+                title="Double-click or double-tap to edit • Hold down to drag"
+              >
+                {todo.title}
+                {showCompletionIndicator && (
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                    ({completedChildrenCount}/{totalChildrenCount})
+                  </span>
+                )}
+              </span>
+              
+              {/* Action buttons - positioned absolutely to overlay on hover */}
+              <div className={`absolute right-0 top-0 bottom-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pl-8 pr-2 ${
+                todo.completed 
+                  ? 'bg-gradient-to-l from-green-50 dark:from-green-900/20 via-green-50 dark:via-green-900/20 to-transparent'
+                  : 'bg-gradient-to-l from-white dark:from-gray-800 via-white dark:via-gray-800 to-transparent'
+              }`}>
+                {!todo.completed && (
+                  <button
+                    onClick={handleAddChildClick}
+                    className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
+                    aria-label="Add child todo"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+                <div className="relative">
+                  <button
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                    className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
+                    aria-label="Task information"
+                  >
+                    <Info size={14} />
+                  </button>
+                  
+                  {showTooltip && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 p-2 rounded-lg shadow-lg text-xs text-gray-700 dark:text-gray-200 z-10">
+                      <p className="font-semibold">Created:</p>
+                      <p>{formatDate(todo.createdAt)}</p>
+                      <p className="font-semibold mt-2">Last Updated:</p>
+                      <p>{formatDate(todo.updatedAt)}</p>
+                      {todo.endDate && (
+                        <>
+                          <p className="font-semibold mt-2">Completed:</p>
+                          <p>{formatDate(todo.endDate)}</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => onDelete(todo.id)}
+                  className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200"
+                  aria-label="Delete todo"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </>
           )}
         </div>
-
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 min-w-[72px]">
-          <div className="relative">
-            <button
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-              className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
-              aria-label="Task information"
-            >
-              <Info size={14} />
-            </button>
-            
-            {showTooltip && (
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
-                <div className="space-y-1">
-                  <div><strong>Created:</strong> {formatDate(todo.createdAt)}</div>
-                  <div><strong>Completed:</strong> {formatDate(todo.endDate)}</div>
-                </div>
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setIsAddingChild(true)}
-            className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
-            aria-label="Add subtask"
-          >
-            <Plus size={14} />
-          </button>
-          
-          <button
-            onClick={() => onDelete(todo.id)}
-            className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200"
-            aria-label="Delete todo"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
       </div>
-
-      {/* Drop indicator after */}
+      
+      {/* After drop zone - invisible area below the todo item */}
       <div
-        ref={setAfterDropRef}
-        className={`absolute -bottom-1 left-0 right-0 h-2 transition-all duration-200 ${
-          isOverAfter ? 'bg-blue-500 rounded-full opacity-100' : 'opacity-0'
+        ref={setDropRefAfter}
+        className={`absolute bottom-0 left-0 right-0 h-2 -mb-1 z-20 ${
+          showDropHighlightAfter ? 'bg-blue-100 dark:bg-blue-900' : ''
         }`}
         style={{ marginLeft: `${indentLevel}px` }}
       />
-
-      {isAddingChild && (
-        <div style={{ marginLeft: `${indentLevel + 20}px` }} className="mt-1">
-          <AddTodoForm
-            onAdd={handleAddChild}
-            onCancel={() => setIsAddingChild(false)}
-            placeholder="Enter subtask title..."
-          />
-        </div>
+      
+      {/* Visual indicator for after drop */}
+      {showDropHighlightAfter && (
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full -mb-0.25 z-30"
+          style={{ marginLeft: `${indentLevel}px` }}
+        />
       )}
-
-      {hasChildren && todo.expanded && (
-        <div className="mt-1 space-y-1">
-          {todo.children.map((child) => (
-            <TodoItem
-              key={child.id}
-              todo={child}
-              level={level + 1}
-              onToggle={onToggle}
-              onDelete={onDelete}
-              onUpdate={onUpdate}
-              onAddChild={onAddChild}
-              onToggleExpanded={onToggleExpanded}
-              isAllChildrenCompleted={isAllChildrenCompleted}
-              hasCompletedParent={todo.completed || hasCompletedParent}
-            />
-          ))}
+      
+      {todo.expanded && hasChildren && (
+        <div 
+          className="pt-1 relative"
+        >
+          {/* Vertical line positioned at the current level */}
+          <div 
+            className="absolute top-0 bottom-0 border-l border-gray-200 dark:border-gray-700"
+            style={{ left: `${indentLevel}px` }}
+          />
+          <div className="todo-list-container space-y-1">
+            {todo.children.map((childTodo) => (
+              <TodoItem
+                key={childTodo.id}
+                todo={childTodo}
+                level={level + 1}
+                onToggle={onToggle}
+                onDelete={onDelete}
+                onUpdate={onUpdate}
+                onAddChild={onAddChild}
+                onAddSibling={onAddSibling}
+                onToggleExpanded={onToggleExpanded}
+                isAllChildrenCompleted={isAllChildrenCompleted}
+                hasCompletedParent={todo.completed || hasCompletedParent}
+                editingTodoId={editingTodoId}
+                removeTodoIfEmpty={removeTodoIfEmpty}
+                delayedOverId={delayedOverId}
+                delayedOverPosition={delayedOverPosition}
+                parentId={todo.id}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -1,10 +1,10 @@
-# Nested Todo App
+# Taskception
 
-A modern, responsive todo application built with React, Vite, and TypeScript, featuring nested tasks and drag-and-drop reordering. Data persistence is handled by Supabase.
+A modern, responsive task management application built with React, Vite, and TypeScript, featuring nested tasks and drag-and-drop reordering. Data persistence is handled by Supabase.
 
 ## Features
 
-- **Nested Todo Items**: Organize tasks hierarchically.
+- **Nested Task Items**: Organize tasks hierarchically.
 - **Drag-and-Drop Reordering**: Intuitively rearrange tasks and subtasks using `dnd-kit`.
 - **Persistent Storage**: All data is securely stored and managed via Supabase.
 - **Light/Dark Theme Toggle**: Switch between different visual themes for comfortable viewing.

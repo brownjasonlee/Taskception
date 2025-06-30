@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { ChevronRight, Plus } from 'lucide-react';
+import React from 'react';
+import { ChevronRight } from 'lucide-react';
 import { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
 import { Todo } from '../types/todo';
 import { TodoItem } from './TodoItem';
-import { AddTodoForm } from './AddTodoForm';
 import { TodoDragDropProvider } from './DragDropContext';
+import { DRAG_NEST_DELAY_MS, DRAG_REORDER_DELAY_MS } from '../config/dnd';
 
 interface TodoListProps {
   todos: Todo[];
@@ -12,10 +12,14 @@ interface TodoListProps {
   onDelete: (id: string) => void;
   onUpdate: (id: string, title: string) => void;
   onAddChild: (title: string, parentId: string) => void;
+  onAddSibling: (title: string, parentId: string | undefined) => void;
   onToggleExpanded: (id: string) => void;
   isAllChildrenCompleted: (todo: Todo) => boolean;
   onAddTodo: (title: string) => void;
   moveTodo: (draggedId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => void;
+  editingTodoId: string | null;
+  removeTodoIfEmpty: (id: string, currentTitle: string) => void;
+  toggleExpanded: (id: string) => void;
 }
 
 export const TodoList: React.FC<TodoListProps> = ({
@@ -24,21 +28,21 @@ export const TodoList: React.FC<TodoListProps> = ({
   onDelete,
   onUpdate,
   onAddChild,
+  onAddSibling,
   onToggleExpanded,
   isAllChildrenCompleted,
   onAddTodo,
-  moveTodo
+  moveTodo,
+  editingTodoId,
+  removeTodoIfEmpty,
+  toggleExpanded
 }) => {
-  const [showCompleted, setShowCompleted] = useState(true);
-  const [isAddingTodo, setIsAddingTodo] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeTodo, setActiveTodo] = useState<Todo | null>(null);
-  const [dragTimer, setDragTimer] = useState<NodeJS.Timeout | null>(null);
-
-  const handleAddTodo = (title: string) => {
-    onAddTodo(title);
-    setIsAddingTodo(false);
-  };
+  const [showCompleted, setShowCompleted] = React.useState(true);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [activeTodo, setActiveTodo] = React.useState<Todo | null>(null);
+  const [dragTimer, setDragTimer] = React.useState<NodeJS.Timeout | null>(null);
+  const [delayedOverId, setDelayedOverId] = React.useState<string | null>(null);
+  const [delayedOverPosition, setDelayedOverPosition] = React.useState<'before' | 'after' | 'inside' | null>(null);
 
   const findTodoById = (todos: Todo[], id: string): Todo | null => {
     for (const todo of todos) {
@@ -58,7 +62,64 @@ export const TodoList: React.FC<TodoListProps> = ({
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    // Handle drag over logic for visual feedback
+    const { over } = event;
+
+    if (!over) {
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        setDragTimer(null);
+      }
+      setDelayedOverId(null);
+      setDelayedOverPosition(null);
+      return;
+    }
+
+    const overId = over.id as string;
+    let potentialPosition: 'before' | 'after' | 'inside' | null = null;
+    let actualOverId: string | null = null;
+
+    if (overId.endsWith('-before')) {
+      actualOverId = overId.replace('-before', '');
+      potentialPosition = 'before';
+    } else if (overId.endsWith('-after')) {
+      actualOverId = overId.replace('-after', '');
+      potentialPosition = 'after';
+    } else if (overId.endsWith('-drop')) {
+      actualOverId = overId.replace('-drop', '');
+      potentialPosition = 'inside';
+    } else {
+      // If not a specific drop zone, clear any pending delayed state
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        setDragTimer(null);
+      }
+      setDelayedOverId(null);
+      setDelayedOverPosition(null);
+      return;
+    }
+
+    // Check if the current potential drop is different from the already delayed one
+    if (actualOverId !== delayedOverId || potentialPosition !== delayedOverPosition) {
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+      }
+
+      // Use different delays for different operations
+      const delay = potentialPosition === 'inside' ? DRAG_NEST_DELAY_MS : DRAG_REORDER_DELAY_MS;
+
+      const timer = setTimeout(() => {
+        setDelayedOverId(actualOverId);
+        setDelayedOverPosition(potentialPosition);
+        // If moving inside or to a different parent level, also expand the target parent after a delay
+        if (potentialPosition === 'inside' && actualOverId) {
+          const targetTodo = findTodoById(todos, actualOverId);
+          if (targetTodo && !targetTodo.expanded) {
+            toggleExpanded(actualOverId);
+          }
+        }
+      }, delay);
+      setDragTimer(timer);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -72,26 +133,24 @@ export const TodoList: React.FC<TodoListProps> = ({
     setActiveId(null);
     setActiveTodo(null);
 
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id) {
+      setDelayedOverId(null);
+      setDelayedOverPosition(null);
+      return;
+    }
 
     const draggedId = active.id as string;
-    const overId = over.id as string;
 
     let targetId: string | null = null;
     let position: 'before' | 'after' | 'inside' | null = null;
 
-    if (overId.endsWith('-before')) {
-      targetId = overId.replace('-before', '');
-      position = 'before';
-    } else if (overId.endsWith('-after')) {
-      targetId = overId.replace('-after', '');
-      position = 'after';
-    } else if (overId.endsWith('-drop')) {
-      targetId = overId.replace('-drop', '');
-      position = 'inside';
-    } else {
-      return;
-    }
+    // Use the delayed over ID and position for the actual move
+    targetId = delayedOverId;
+    position = delayedOverPosition;
+
+    // Reset delayed state
+    setDelayedOverId(null);
+    setDelayedOverPosition(null);
 
     if (!targetId || !position) {
         return;
@@ -103,38 +162,15 @@ export const TodoList: React.FC<TodoListProps> = ({
       return;
     }
 
-    if (position === 'inside') {
-      const timer = setTimeout(() => {
-        moveTodo(draggedId, targetId, position);
-      }, 500);
-      setDragTimer(timer);
-    } else {
-      moveTodo(draggedId, targetId, position);
-    }
+    moveTodo(draggedId, targetId, position);
   };
 
-  if (todos.length === 0 && !isAddingTodo) {
+  if (todos.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-gray-400 dark:text-gray-500 text-lg mb-4">
-          No todos yet
+          No todos yet. Click the + button in the header to add your first todo.
         </div>
-        <button
-          onClick={() => setIsAddingTodo(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200"
-        >
-          <Plus size={16} />
-          Add your first todo
-        </button>
-        {isAddingTodo && (
-          <div className="mt-4 max-w-sm mx-auto">
-            <AddTodoForm
-              onAdd={handleAddTodo}
-              onCancel={() => setIsAddingTodo(false)}
-              placeholder="Enter todo title..."
-            />
-          </div>
-        )}
       </div>
     );
   }
@@ -153,28 +189,11 @@ export const TodoList: React.FC<TodoListProps> = ({
       onDelete={onDelete}
       onUpdate={onUpdate}
       onAddChild={onAddChild}
+      onAddSibling={onAddSibling}
       onToggleExpanded={onToggleExpanded}
       isAllChildrenCompleted={isAllChildrenCompleted}
     >
-      <div className="space-y-1">
-        <div className="mb-4">
-          {!isAddingTodo ? (
-            <button
-              onClick={() => setIsAddingTodo(true)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-left text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200"
-            >
-              <Plus size={16} />
-              <span>Add new todo...</span>
-            </button>
-          ) : (
-            <AddTodoForm
-              onAdd={handleAddTodo}
-              onCancel={() => setIsAddingTodo(false)}
-              placeholder="Enter todo title..."
-            />
-          )}
-        </div>
-
+      <div className="todo-list-container space-y-1">
         {incompleteTodos.map((todo) => (
           <TodoItem
             key={todo.id}
@@ -184,9 +203,15 @@ export const TodoList: React.FC<TodoListProps> = ({
             onDelete={onDelete}
             onUpdate={onUpdate}
             onAddChild={onAddChild}
+            onAddSibling={onAddSibling}
             onToggleExpanded={onToggleExpanded}
             isAllChildrenCompleted={isAllChildrenCompleted}
             hasCompletedParent={false}
+            editingTodoId={editingTodoId}
+            removeTodoIfEmpty={removeTodoIfEmpty}
+            delayedOverId={delayedOverId}
+            delayedOverPosition={delayedOverPosition}
+            parentId={undefined}
           />
         ))}
 
@@ -198,14 +223,12 @@ export const TodoList: React.FC<TodoListProps> = ({
                 className="flex items-center gap-2 w-full text-left text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-200"
               >
                 <ChevronRight 
-                  size={14} 
+                  size={16}
                   className={`transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}
                 />
                 <span>Completed ({completedTodos.length})</span>
-                <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600 ml-2"></div>
               </button>
             </div>
-
             {showCompleted && (
               <div className="space-y-1">
                 {completedTodos.map((todo) => (
@@ -217,9 +240,15 @@ export const TodoList: React.FC<TodoListProps> = ({
                     onDelete={onDelete}
                     onUpdate={onUpdate}
                     onAddChild={onAddChild}
+                    onAddSibling={onAddSibling}
                     onToggleExpanded={onToggleExpanded}
                     isAllChildrenCompleted={isAllChildrenCompleted}
                     hasCompletedParent={false}
+                    editingTodoId={editingTodoId}
+                    removeTodoIfEmpty={removeTodoIfEmpty}
+                    delayedOverId={delayedOverId}
+                    delayedOverPosition={delayedOverPosition}
+                    parentId={undefined}
                   />
                 ))}
               </div>

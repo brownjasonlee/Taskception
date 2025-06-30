@@ -18,7 +18,9 @@ function App() {
     undo,
     redo,
     canUndo,
-    canRedo
+    canRedo,
+    editingTodoId,
+    removeTodoIfEmpty
   } = useTodos();
 
   const handleAddChild = (title: string, parentId: string) => {
@@ -34,6 +36,7 @@ function App() {
         canUndo={canUndo}
         onRedo={redo}
         canRedo={canRedo}
+        onAddTodo={addTodo}
       />
       
       <main className="max-w-md mx-auto px-4 py-6">
@@ -43,10 +46,14 @@ function App() {
           onDelete={deleteTodo}
           onUpdate={updateTodo}
           onAddChild={handleAddChild}
+          onAddSibling={addTodo}
           onToggleExpanded={toggleExpanded}
           isAllChildrenCompleted={isAllChildrenCompleted}
           onAddTodo={addTodo}
           moveTodo={moveTodo}
+          editingTodoId={editingTodoId}
+          removeTodoIfEmpty={removeTodoIfEmpty}
+          toggleExpanded={toggleExpanded}
         />
       </main>
     </div>

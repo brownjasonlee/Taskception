@@ -1,5 +1,5 @@
 import React from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Plus, Undo2, Redo2 } from 'lucide-react';
 
 interface HeaderProps {
   isDark: boolean;
@@ -8,14 +8,19 @@ interface HeaderProps {
   canUndo: boolean;
   onRedo: () => void;
   canRedo: boolean;
+  onAddTodo: (title: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, onUndo, canUndo, onRedo, canRedo }) => {
+export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, onUndo, canUndo, onRedo, canRedo, onAddTodo }) => {
+  const handleAddClick = () => {
+    onAddTodo("");
+  };
+
   return (
     <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-          Nested Todos
+          Taskception
         </h1>
         
         <div className="flex items-center gap-2">
@@ -25,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, onUndo, can
             className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Undo last action"
           >
-            Undo
+            <Undo2 size={20} />
           </button>
           <button
             onClick={onRedo}
@@ -33,7 +38,14 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, onUndo, can
             className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Redo last action"
           >
-            Redo
+            <Redo2 size={20} />
+          </button>
+          <button
+            onClick={handleAddClick}
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors duration-200"
+            aria-label="Add new todo"
+          >
+            <Plus size={20} />
           </button>
           <button
             onClick={toggleTheme}

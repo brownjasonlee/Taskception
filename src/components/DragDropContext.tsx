@@ -4,7 +4,8 @@ import {
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -25,6 +26,7 @@ interface DragDropContextProps {
   onDelete: (id: string) => void;
   onUpdate: (id: string, title: string) => void;
   onAddChild: (title: string, parentId: string) => void;
+  onAddSibling: (title: string, parentId: string | undefined) => void;
   onToggleExpanded: (id: string) => void;
   isAllChildrenCompleted: (todo: Todo) => boolean;
 }
@@ -52,13 +54,45 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
   onDelete,
   onUpdate,
   onAddChild,
+  onAddSibling,
   onToggleExpanded,
   isAllChildrenCompleted
 }) => {
+  // Prevent scrolling during drag operations
+  React.useEffect(() => {
+    const preventScroll = (e: TouchEvent) => {
+      if (activeId) {
+        e.preventDefault();
+      }
+    };
+
+    if (activeId) {
+      document.addEventListener('touchmove', preventScroll, { passive: false });
+      document.body.style.overflow = 'hidden';
+      // Haptic feedback for drag start
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    } else {
+      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = '';
+    };
+  }, [activeId]);
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 8, // Require 8px of movement before drag starts
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 500, // 500ms delay for touch to start drag (long press)
+        tolerance: 10, // Allow 10px of movement during delay for touch precision
       },
     })
   );
@@ -90,10 +124,15 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
                 onDelete={onDelete}
                 onUpdate={onUpdate}
                 onAddChild={onAddChild}
+                onAddSibling={onAddSibling}
                 onToggleExpanded={onToggleExpanded}
                 isAllChildrenCompleted={isAllChildrenCompleted}
                 hasCompletedParent={false}
-                isDragging={true}
+                editingTodoId=""
+                removeTodoIfEmpty={() => {}}
+                delayedOverId={null}
+                delayedOverPosition={null}
+                parentId={undefined}
               />
             </div>
           ) : null}

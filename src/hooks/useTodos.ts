@@ -96,6 +96,7 @@ export const useTodos = () => {
   const [todos, setTodos] = useState<Todo[]>(initialTodos);
   const [undoStack, setUndoStack] = useState<TodoOperation[]>([]);
   const [redoStack, setRedoStack] = useState<TodoOperation[]>([]);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
 
   const recordOperation = useCallback((operation: TodoOperation) => {
     setUndoStack(prev => {
@@ -152,14 +153,14 @@ export const useTodos = () => {
 
   const addTodoToTree = useCallback((todos: Todo[], parentId: string | undefined, newTodo: Todo): Todo[] => {
     if (!parentId) {
-      return [...todos, newTodo];
+      return [newTodo, ...todos];
     }
 
     return todos.map(todo => {
       if (todo.id === parentId) {
         return {
           ...todo,
-          children: [...todo.children, newTodo],
+          children: [newTodo, ...todo.children],
           expanded: true
         };
       }
@@ -202,7 +203,10 @@ export const useTodos = () => {
       }
       case 'delete': {
         const op = operation as DeleteOperation;
-        return addTodoToTree(newTodos, op.parentId ?? undefined, op.todo); // Re-add deleted todo
+        if (op.todo) {
+          return addTodoToTree(newTodos, op.parentId ?? undefined, op.todo);
+        }
+        return newTodos;
       }
       case 'update': {
         const op = operation as UpdateOperation;
@@ -264,28 +268,32 @@ export const useTodos = () => {
 
   // Actions
   const addTodo = useCallback((title: string, parentId?: string) => {
-    const now = new Date();
-    const newTodo: Todo = {
-      id: uuidv4(),
-      title,
-      completed: false,
-      expanded: false,
-      children: [],
-      createdAt: now,
-      updatedAt: now
-    };
-
     setTodos(prevTodos => {
-      const updated = addTodoToTree(prevTodos, parentId, newTodo);
+      const newTodo: Todo = {
+        id: uuidv4(),
+        title,
+        completed: false,
+        expanded: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        children: []
+      };
+
+      const newTodos = addTodoToTree(prevTodos, parentId, newTodo);
       recordOperation({
         type: 'add',
-        timestamp: now,
         todo: newTodo,
-        parentId
-      } as AddOperation);
-      return sortTodos(updated);
+        parentId: parentId,
+        timestamp: new Date(),
+      });
+
+      if (title === "") {
+        setEditingTodoId(newTodo.id);
+      }
+
+      return sortTodos(newTodos);
     });
-  }, [addTodoToTree, sortTodos, recordOperation]);
+  }, [addTodoToTree, recordOperation, sortTodos]);
 
   const toggleTodo = useCallback((id: string) => {
     setTodos(prevTodos => {
@@ -333,13 +341,13 @@ export const useTodos = () => {
     });
   }, [removeTodoFromTree, sortTodos, recordOperation, findTodoAndParentById]);
 
-  const updateTodo = useCallback((id: string, title: string) => {
+  const updateTodo = useCallback((id: string, newTitle: string) => {
     setTodos(prevTodos => {
       const oldTodo = findTodoById(prevTodos, id);
       if (!oldTodo) return prevTodos;
 
       const now = new Date();
-      const newTodo = { ...oldTodo, title, updatedAt: now };
+      const newTodo = { ...oldTodo, title: newTitle, updatedAt: now };
 
       recordOperation({
         type: 'update',
@@ -351,7 +359,7 @@ export const useTodos = () => {
 
       const updated = updateTodoInTree(prevTodos, id, (todo) => ({
         ...todo,
-        title,
+        title: newTitle,
         updatedAt: now
       }));
       return sortTodos(updated);
@@ -480,6 +488,23 @@ export const useTodos = () => {
     });
   }, []);
 
+  const removeTodoIfEmpty = useCallback((id: string, currentTitle: string) => {
+    if (currentTitle.trim() === "") {
+      setTodos(prevTodos => {
+        const newTodos = removeTodoFromTree(prevTodos, id);
+        recordOperation({
+          type: 'delete',
+          todoId: id,
+          timestamp: new Date(),
+          // This is a simplified undo. For a full undo, you'd need to store the todo content and its original position.
+          // This is acceptable for a newly created empty todo.
+        } as DeleteOperation);
+        return newTodos;
+      });
+    }
+    setEditingTodoId(null);
+  }, [removeTodoFromTree]);
+
   return {
     todos,
     addTodo,
@@ -492,6 +517,8 @@ export const useTodos = () => {
     undo,
     redo,
     canUndo: undoStack.length > 0,
-    canRedo: redoStack.length > 0
+    canRedo: redoStack.length > 0,
+    editingTodoId,
+    removeTodoIfEmpty
   };
 };
