@@ -1,6 +1,15 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Todo } from '../types/todo';
+import {
+  Todo,
+  TodoOperation,
+  AddOperation,
+  DeleteOperation,
+  UpdateOperation,
+  MoveOperation,
+  ToggleCompletionOperation,
+  ToggleExpansionOperation
+} from '../types/todo';
 
 const initialTodos: Todo[] = [
   {
@@ -81,31 +90,23 @@ const initialTodos: Todo[] = [
   }
 ];
 
-const MAX_HISTORY_SIZE = 10; // Limit history to the last 10 changes
+const MAX_HISTORY_SIZE = 50; // Keep a reasonable history size
 
 export const useTodos = () => {
   const [todos, setTodos] = useState<Todo[]>(initialTodos);
-  const [history, setHistory] = useState<Todo[][]>([initialTodos]);
-  const [historyPointer, setHistoryPointer] = useState(0);
+  const [undoStack, setUndoStack] = useState<TodoOperation[]>([]);
+  const [redoStack, setRedoStack] = useState<TodoOperation[]>([]);
 
-  const saveState = useCallback((newTodos: Todo[]) => {
-    setHistory(prevHistory => {
-      const newHistory = prevHistory.slice(0, historyPointer + 1); // Truncate history if we undid
-      if (newHistory.length > MAX_HISTORY_SIZE) {
-        newHistory.shift(); // Remove the oldest state
+  const recordOperation = useCallback((operation: TodoOperation) => {
+    setUndoStack(prev => {
+      const newStack = [...prev, operation];
+      if (newStack.length > MAX_HISTORY_SIZE) {
+        newStack.shift(); // Remove oldest operation if stack exceeds size
       }
-      return [...newHistory, newTodos];
+      return newStack;
     });
-    setHistoryPointer(prevPointer => Math.min(prevPointer + 1, MAX_HISTORY_SIZE));
-  }, [historyPointer]);
-
-  const undo = useCallback(() => {
-    setHistoryPointer(prevPointer => {
-      const newPointer = Math.max(0, prevPointer - 1);
-      setTodos(history[newPointer]);
-      return newPointer;
-    });
-  }, [history]);
+    setRedoStack([]); // Clear redo stack on new operation
+  }, []);
 
   const findTodoById = useCallback((todos: Todo[], id: string): Todo | null => {
     for (const todo of todos) {
@@ -115,6 +116,19 @@ export const useTodos = () => {
     }
     return null;
   }, []);
+
+  // Helper to find a todo and its parent by ID
+  const findTodoAndParentById = useCallback((todos: Todo[], id: string, parentId: string | undefined = undefined, index: number = -1): { todo: Todo | null, parent: Todo | null, index: number, parentId: string | undefined } => {
+    for (let i = 0; i < todos.length; i++) {
+      const todo = todos[i];
+      if (todo.id === id) {
+        return { todo, parent: parentId ? findTodoById(todos, parentId) : null, index: i, parentId };
+      }
+      const found = findTodoAndParentById(todo.children, id, todo.id, i);
+      if (found.todo) return found;
+    }
+    return { todo: null, parent: null, index: -1, parentId: undefined };
+  }, [findTodoById]);
 
   const updateTodoInTree = useCallback((todos: Todo[], id: string, updater: (todo: Todo) => Todo): Todo[] => {
     return todos.map(todo => {
@@ -176,71 +190,78 @@ export const useTodos = () => {
     ];
   }, []);
 
-  // New function to handle reordering
-  const reorderTodos = useCallback((newTodos: Todo[]) => {
-    saveState(newTodos); // Save state before reordering
-    setTodos(newTodos);
-  }, [saveState]);
+  // Undo/Redo functions
+  const applyOperation = useCallback((currentTodos: Todo[], operation: TodoOperation, isRedo: boolean): Todo[] => {
+    let newTodos = JSON.parse(JSON.stringify(currentTodos)); // Deep copy to avoid mutation issues
 
-  // Function to move a todo from one location to another
-  const moveTodo = useCallback((draggedId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => {
-    setTodos(prevTodos => {
-      saveState(prevTodos); // Save state before moving
-
-      // Find and remove the dragged todo
-      const draggedTodo = findTodoById(prevTodos, draggedId);
-      if (!draggedTodo) return prevTodos;
-
-      const todosWithoutDragged = removeTodoFromTree(prevTodos, draggedId);
-
-      // If dropping at root level
-      if (!targetId) {
-        return [...todosWithoutDragged, draggedTodo];
+    switch (operation.type) {
+      case 'add': {
+        const op = operation as AddOperation;
+        return removeTodoFromTree(newTodos, op.todo.id);
       }
+      case 'delete': {
+        const op = operation as DeleteOperation;
+        return addTodoToTree(newTodos, op.parentId ?? undefined, op.todo); // Re-add deleted todo
+      }
+      case 'update': {
+        const op = operation as UpdateOperation;
+        return updateTodoInTree(newTodos, op.id, (todo) => isRedo ? op.newTodo : op.oldTodo);
+      }
+      case 'move': {
+        const op = operation as MoveOperation;
+        // For move, undo means moving it back to old position, redo means moving to new position
+        const draggedTodo = findTodoById(newTodos, op.draggedId);
+        if (!draggedTodo) return currentTodos; // Should not happen
 
-      // Find target todo and its parent
-      const insertTodo = (todos: Todo[], targetId: string, draggedTodo: Todo, position: 'before' | 'after' | 'inside'): Todo[] => {
-        for (let i = 0; i < todos.length; i++) {
-          const todo = todos[i];
-          
-          if (todo.id === targetId) {
-            if (position === 'inside') {
-              // Add as child
-              return todos.map(t => 
-                t.id === targetId 
-                  ? { ...t, children: [...t.children, draggedTodo], expanded: true }
-                  : t
-              );
-            } else if (position === 'before') {
-              // Insert before
-              const newTodos = [...todos];
-              newTodos.splice(i, 0, draggedTodo);
-              return newTodos;
-            } else {
-              // Insert after
-              const newTodos = [...todos];
-              newTodos.splice(i + 1, 0, draggedTodo);
-              return newTodos;
-            }
-          }
-          
-          // Recursively check children
-          const updatedChildren = insertTodo(todo.children, targetId, draggedTodo, position);
-          if (updatedChildren !== todo.children) {
-            return todos.map(t => 
-              t.id === todo.id 
-                ? { ...t, children: updatedChildren }
-                : t
-            );
-          }
+        const tempTodosWithoutDragged = removeTodoFromTree(newTodos, op.draggedId);
+        if (isRedo) {
+            return addTodoToTree(tempTodosWithoutDragged, op.newTargetId ?? undefined, draggedTodo);
+        } else {
+            return addTodoToTree(tempTodosWithoutDragged, op.oldTargetId ?? undefined, draggedTodo);
         }
-        return todos;
-      };
+      }
+      case 'toggleCompletion': {
+        const op = operation as ToggleCompletionOperation;
+        return updateTodoInTree(newTodos, op.id, (todo) => ({
+          ...todo,
+          completed: isRedo ? !op.oldCompleted : op.oldCompleted,
+          endDate: isRedo ? (op.oldCompleted ? undefined : new Date()) : op.oldEndDate
+        }));
+      }
+      case 'toggleExpansion': {
+        const op = operation as ToggleExpansionOperation;
+        return updateTodoInTree(newTodos, op.id, (todo) => ({
+          ...todo,
+          expanded: isRedo ? !op.oldExpanded : op.oldExpanded
+        }));
+      }
+      default: return currentTodos;
+    }
+  }, [findTodoById, removeTodoFromTree, addTodoToTree, updateTodoInTree]);
 
-      return insertTodo(todosWithoutDragged, targetId, draggedTodo, position);
-    });
-  }, [findTodoById, removeTodoFromTree, saveState]);
+  const undo = useCallback(() => {
+    if (undoStack.length === 0) return;
 
+    const lastOperation = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, prev.length - 1));
+
+    const nextTodos = applyOperation(todos, lastOperation, false); // Apply undo
+    setTodos(sortTodos(nextTodos));
+    setRedoStack(prev => [...prev, lastOperation]); // Push to redo stack
+  }, [undoStack, todos, applyOperation, sortTodos]);
+
+  const redo = useCallback(() => {
+    if (redoStack.length === 0) return;
+
+    const nextOperation = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, prev.length - 1));
+
+    const nextTodos = applyOperation(todos, nextOperation, true); // Apply redo
+    setTodos(sortTodos(nextTodos));
+    setUndoStack(prev => [...prev, nextOperation]); // Push to undo stack
+  }, [redoStack, todos, applyOperation, sortTodos]);
+
+  // Actions
   const addTodo = useCallback((title: string, parentId?: string) => {
     const now = new Date();
     const newTodo: Todo = {
@@ -254,63 +275,192 @@ export const useTodos = () => {
     };
 
     setTodos(prevTodos => {
-      saveState(prevTodos); // Save state before adding
       const updated = addTodoToTree(prevTodos, parentId, newTodo);
+      recordOperation({
+        type: 'add',
+        timestamp: now,
+        todo: newTodo,
+        parentId
+      } as AddOperation);
       return sortTodos(updated);
     });
-  }, [addTodoToTree, sortTodos, saveState]);
+  }, [addTodoToTree, sortTodos, recordOperation]);
 
   const toggleTodo = useCallback((id: string) => {
     setTodos(prevTodos => {
-      saveState(prevTodos); // Save state before toggling
-      const updated = updateTodoInTree(prevTodos, id, (todo) => {
-        const canToggle = todo.children.length === 0 || isAllChildrenCompleted(todo);
-        const now = new Date();
-        
-        if (!canToggle) return todo;
-        
-        const newCompleted = !todo.completed;
-        
-        return {
-          ...todo,
-          completed: newCompleted,
-          updatedAt: now,
-          endDate: newCompleted ? now : undefined
-        };
-      });
-      return sortTodos(updated);
-    });
-  }, [updateTodoInTree, isAllChildrenCompleted, sortTodos, saveState]);
+      const oldTodo = findTodoById(prevTodos, id);
+      if (!oldTodo) return prevTodos;
 
-  const deleteTodo = useCallback((id: string) => {
-    setTodos(prevTodos => {
-      saveState(prevTodos); // Save state before deleting
-      return sortTodos(removeTodoFromTree(prevTodos, id));
-    });
-  }, [removeTodoFromTree, sortTodos, saveState]);
+      const canToggle = oldTodo.children.length === 0 || isAllChildrenCompleted(oldTodo);
+      if (!canToggle) return prevTodos;
 
-  const updateTodo = useCallback((id: string, title: string) => {
-    setTodos(prevTodos => {
-      saveState(prevTodos); // Save state before updating
+      const now = new Date();
+      const newCompleted = !oldTodo.completed;
+      const newEndDate = newCompleted ? now : undefined;
+
+      recordOperation({
+        type: 'toggleCompletion',
+        timestamp: now,
+        id: oldTodo.id,
+        oldCompleted: oldTodo.completed,
+        oldEndDate: oldTodo.endDate
+      } as ToggleCompletionOperation);
+
       const updated = updateTodoInTree(prevTodos, id, (todo) => ({
         ...todo,
-        title,
-        updatedAt: new Date()
+        completed: newCompleted,
+        updatedAt: now,
+        endDate: newEndDate
       }));
       return sortTodos(updated);
     });
-  }, [updateTodoInTree, sortTodos, saveState]);
+  }, [updateTodoInTree, isAllChildrenCompleted, sortTodos, recordOperation, findTodoById]);
+
+  const deleteTodo = useCallback((id: string) => {
+    setTodos(prevTodos => {
+      const { todo: deletedTodo, parent, index, parentId } = findTodoAndParentById(prevTodos, id);
+      if (!deletedTodo) return prevTodos;
+
+      recordOperation({
+        type: 'delete',
+        timestamp: new Date(),
+        todo: deletedTodo,
+        parentId,
+        previousIndex: index
+      } as DeleteOperation);
+      return sortTodos(removeTodoFromTree(prevTodos, id));
+    });
+  }, [removeTodoFromTree, sortTodos, recordOperation, findTodoAndParentById]);
+
+  const updateTodo = useCallback((id: string, title: string) => {
+    setTodos(prevTodos => {
+      const oldTodo = findTodoById(prevTodos, id);
+      if (!oldTodo) return prevTodos;
+
+      const now = new Date();
+      const newTodo = { ...oldTodo, title, updatedAt: now };
+
+      recordOperation({
+        type: 'update',
+        timestamp: now,
+        id: oldTodo.id,
+        oldTodo: oldTodo,
+        newTodo: newTodo
+      } as UpdateOperation);
+
+      const updated = updateTodoInTree(prevTodos, id, (todo) => ({
+        ...todo,
+        title,
+        updatedAt: now
+      }));
+      return sortTodos(updated);
+    });
+  }, [updateTodoInTree, sortTodos, recordOperation, findTodoById]);
 
   const toggleExpanded = useCallback((id: string) => {
     setTodos(prevTodos => {
-      saveState(prevTodos); // Save state before toggling expanded
+      const oldTodo = findTodoById(prevTodos, id);
+      if (!oldTodo) return prevTodos;
+
+      recordOperation({
+        type: 'toggleExpansion',
+        timestamp: new Date(),
+        id: oldTodo.id,
+        oldExpanded: oldTodo.expanded
+      } as ToggleExpansionOperation);
+
       return updateTodoInTree(prevTodos, id, (todo) => ({
         ...todo,
         expanded: !todo.expanded,
         updatedAt: new Date()
       }));
     });
-  }, [updateTodoInTree, saveState]);
+  }, [updateTodoInTree, recordOperation, findTodoById]);
+
+  const moveTodo = useCallback((draggedId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => {
+    setTodos(prevTodos => {
+      const draggedTodo = findTodoById(prevTodos, draggedId);
+      if (!draggedTodo) return prevTodos;
+
+      // Capture old position for undo
+      const { parent: oldParent, index: oldIndex, parentId: oldParentId } = findTodoAndParentById(prevTodos, draggedId);
+      const oldTargetId = oldParentId; 
+      let oldPosition: 'before' | 'after' | 'inside' = 'after'; 
+
+      if (oldParent && oldIndex !== -1) {
+        if (oldIndex === 0) {
+          oldPosition = 'before'; 
+        } else {
+          oldPosition = 'after'; 
+        }
+      }
+
+      const todosWithoutDragged = removeTodoFromTree(prevTodos, draggedId);
+
+      let finalTodos: Todo[];
+
+      if (targetId === null) {
+        // Dropping at the root level
+        finalTodos = [...todosWithoutDragged, draggedTodo];
+      } else {
+        // Dropping into a specific target (before, after, or inside)
+        const insertTodo = (todos: Todo[], targetId: string, draggedTodo: Todo, position: 'before' | 'after' | 'inside'): Todo[] => {
+          for (let i = 0; i < todos.length; i++) {
+            const todo = todos[i];
+            
+            if (todo.id === targetId) {
+              if (position === 'inside') {
+                return todos.map(t => 
+                  t.id === targetId 
+                    ? { ...t, children: [...t.children, draggedTodo], expanded: true }
+                    : t
+                );
+              } else if (position === 'before') {
+                const newTodos = [...todos];
+                newTodos.splice(i, 0, draggedTodo);
+                return newTodos;
+              } else {
+                const newTodos = [...todos];
+                newTodos.splice(i + 1, 0, draggedTodo);
+                return newTodos;
+              }
+            }
+            
+            const updatedChildren = insertTodo(todo.children, targetId, draggedTodo, position);
+            if (updatedChildren !== todo.children) {
+              return todos.map(t => 
+                t.id === todo.id 
+                  ? { ...t, children: updatedChildren }
+                  : t
+              );
+            }
+          }
+          return todos;
+        };
+        finalTodos = insertTodo(todosWithoutDragged, targetId!, draggedTodo, position);
+      }
+
+      recordOperation({
+        type: 'move',
+        timestamp: new Date(),
+        draggedId: draggedId,
+        oldTargetId: oldTargetId,
+        oldPosition: oldPosition,
+        newTargetId: targetId,
+        newPosition: position
+      } as MoveOperation);
+
+      return finalTodos;
+    });
+  }, [findTodoById, removeTodoFromTree, recordOperation, findTodoAndParentById]);
+
+  // This reorderTodos is currently unused but might be used if dnd-kit changes its API
+  const reorderTodos = useCallback((newTodos: Todo[]) => {
+    setTodos(prevTodos => {
+      // This function would need to capture a 'move' operation if it were actively used
+      return newTodos;
+    });
+  }, []);
 
   return {
     todos,
@@ -322,6 +472,8 @@ export const useTodos = () => {
     isAllChildrenCompleted,
     moveTodo,
     undo,
-    canUndo: historyPointer > 0
+    redo,
+    canUndo: undoStack.length > 0,
+    canRedo: redoStack.length > 0
   };
 };

@@ -223,7 +223,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-0.5 opacity-100 transition-opacity duration-200 w-20 flex-shrink-0">
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 min-w-[72px]">
           <div className="relative">
             <button
               onMouseEnter={() => setShowTooltip(true)}
