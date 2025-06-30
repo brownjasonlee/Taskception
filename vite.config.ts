@@ -96,7 +96,7 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: [
-      'old-actors-rest.loca.lt'
+      'social-results-rule.loca.lt'
     ],
   }
 })
