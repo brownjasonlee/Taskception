@@ -1,0 +1,1 @@
+export const DRAG_DELAY_MS = 500; 

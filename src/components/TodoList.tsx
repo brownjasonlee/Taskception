@@ -4,6 +4,7 @@ import { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
 import { Todo } from '../types/todo';
 import { TodoItem } from './TodoItem';
 import { TodoDragDropProvider } from './DragDropContext';
+import { DRAG_DELAY_MS } from '../config/dnd';
 
 interface TodoListProps {
   todos: Todo[];
@@ -103,7 +104,7 @@ export const TodoList: React.FC<TodoListProps> = ({
     if (position === 'inside') {
       const timer = setTimeout(() => {
         moveTodo(draggedId, targetId, position);
-      }, 500);
+      }, DRAG_DELAY_MS);
       setDragTimer(timer);
     } else {
       moveTodo(draggedId, targetId, position);
