@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, onUndo, can
     <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-          Nested Todos
+          Taskception
         </h1>
         
         <div className="flex items-center gap-2">

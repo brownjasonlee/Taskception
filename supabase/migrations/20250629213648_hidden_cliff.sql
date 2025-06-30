@@ -1,5 +1,5 @@
 /*
-  # Create todos table for nested todo application
+  # Create todos table for Taskception
 
   1. New Tables
     - `todos`
