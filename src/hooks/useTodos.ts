@@ -118,13 +118,14 @@ export const useTodos = () => {
   }, []);
 
   // Helper to find a todo and its parent by ID
-  const findTodoAndParentById = useCallback((todos: Todo[], id: string, parentId: string | undefined = undefined, index: number = -1): { todo: Todo | null, parent: Todo | null, index: number, parentId: string | undefined } => {
+  const findTodoAndParentById = useCallback((todos: Todo[], id: string, parentId: string | undefined = undefined, index: number = -1, rootTodos: Todo[]): { todo: Todo | null, parent: Todo | null, index: number, parentId: string | undefined } => {
     for (let i = 0; i < todos.length; i++) {
       const todo = todos[i];
       if (todo.id === id) {
-        return { todo, parent: parentId ? findTodoById(todos, parentId) : null, index: i, parentId };
+        const parent = parentId ? findTodoById(rootTodos, parentId) : null;
+        return { todo, parent, index: i, parentId };
       }
-      const found = findTodoAndParentById(todo.children, id, todo.id, i);
+      const found = findTodoAndParentById(todo.children, id, todo.id, i, rootTodos);
       if (found.todo) return found;
     }
     return { todo: null, parent: null, index: -1, parentId: undefined };
@@ -318,7 +319,7 @@ export const useTodos = () => {
 
   const deleteTodo = useCallback((id: string) => {
     setTodos(prevTodos => {
-      const { todo: deletedTodo, parent, index, parentId } = findTodoAndParentById(prevTodos, id);
+      const { todo: deletedTodo, parent, index, parentId } = findTodoAndParentById(prevTodos, id, undefined, undefined, prevTodos);
       if (!deletedTodo) return prevTodos;
 
       recordOperation({
@@ -383,7 +384,7 @@ export const useTodos = () => {
       if (!draggedTodo) return prevTodos;
 
       // Capture old position for undo
-      const { parent: oldParent, index: oldIndex, parentId: oldParentId } = findTodoAndParentById(prevTodos, draggedId);
+      const { parent: oldParent, index: oldIndex, parentId: oldParentId } = findTodoAndParentById(prevTodos, draggedId, undefined, undefined, prevTodos);
       const oldTargetId = oldParentId; 
       let oldPosition: 'before' | 'after' | 'inside' = 'after'; 
 
@@ -403,17 +404,30 @@ export const useTodos = () => {
         // Dropping at the root level
         finalTodos = [...todosWithoutDragged, draggedTodo];
       } else {
-        // Dropping into a specific target (before, after, or inside)
+        const targetResult = findTodoAndParentById(prevTodos, targetId, undefined, undefined, prevTodos);
+        const targetTodo = targetResult.todo;
+        const targetParent = targetResult.parent;
+
+        if (!targetTodo) {
+          return prevTodos; // Should not happen if targetId is valid
+        }
+
+        // Prevent dropping uncompleted task directly inside a completed task
+        if (position === 'inside' && targetTodo.completed && !draggedTodo.completed) {
+          return prevTodos; // Do not allow the move
+        }
+
+        // Prevent dropping uncompleted task as a sibling of a task whose parent is completed
+        if (targetParent && targetParent.completed && !draggedTodo.completed) {
+          return prevTodos; // Do not allow the move
+        }
+
         const insertTodo = (todos: Todo[], targetId: string, draggedTodo: Todo, position: 'before' | 'after' | 'inside'): Todo[] => {
           for (let i = 0; i < todos.length; i++) {
             const todo = todos[i];
             
             if (todo.id === targetId) {
               if (position === 'inside') {
-                // Prevent moving uncompleted task into a completed parent
-                if (todo.completed && !draggedTodo.completed) {
-                  return todos; // Do not allow the move
-                }
                 return todos.map(t => 
                   t.id === targetId 
                     ? { ...t, children: [...t.children, draggedTodo], expanded: true }

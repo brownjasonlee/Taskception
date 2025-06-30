@@ -98,6 +98,7 @@ export const TodoList: React.FC<TodoListProps> = ({
     }
 
     const targetTodo = findTodoById(todos, targetId);
+    
     if (targetTodo && targetTodo.completed && position === 'inside') {
       return;
     }
