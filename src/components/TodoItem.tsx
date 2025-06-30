@@ -50,6 +50,12 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     disabled: isDragging || isEditing
   });
 
+  const hasChildren = todo.children.length > 0;
+  // Calculate completion status for subtasks
+  const completedChildrenCount = todo.children.filter(child => child.completed).length;
+  const totalChildrenCount = todo.children.length;
+  const showCompletionIndicator = hasChildren && totalChildrenCount > 0;
+
   // Droppable setup for different drop zones
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `${todo.id}-drop`,
@@ -66,7 +72,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     disabled: isDragging || isActive
   });
 
-  const hasChildren = todo.children.length > 0;
   const canComplete = !hasChildren || isAllChildrenCompleted(todo);
   const canUncheck = todo.completed && !hasCompletedParent;
   const indentLevel = level * 20;
@@ -219,6 +224,11 @@ export const TodoItem: React.FC<TodoItemProps> = ({
               title="Double-click to edit"
             >
               {todo.title}
+              {showCompletionIndicator && (
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                  ({completedChildrenCount}/{totalChildrenCount})
+                </span>
+              )}
             </span>
           )}
         </div>
