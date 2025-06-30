@@ -25,6 +25,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const [editTitle, setEditTitle] = useState(todo.title);
   const [showTooltip, setShowTooltip] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
+  const [animationState, setAnimationState] = useState<'completing' | 'uncompleting' | null>(null);
   const [swipeState, setSwipeState] = useState<{
     isSwipping: boolean;
     startX: number;
@@ -232,7 +233,17 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     if (todo.completed && !canUncheck) {
       return;
     }
-    onToggle(todo.id);
+    
+    // Trigger animation based on current state
+    const willBeCompleted = !todo.completed;
+    setAnimationState(willBeCompleted ? 'completing' : 'uncompleting');
+    
+    // Delay the actual toggle to allow animation to play
+    setTimeout(() => {
+      onToggle(todo.id);
+      // Clear animation state after toggle
+      setTimeout(() => setAnimationState(null), 50);
+    }, 100); // Small delay to start the animation
   };
 
   const formatDate = (date: Date | undefined) => {
@@ -268,7 +279,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   }
 
   return (
-    <div className={`todo-item group relative ${isEditing ? 'editing' : ''} ${todo.completed ? 'completed' : ''}`}>
+    <div className={`todo-item group relative ${isEditing ? 'editing' : ''} ${todo.completed ? 'completed' : ''} ${animationState || ''}`}>
       {/* Before drop zone - invisible area above the todo item */}
       <div
         ref={setDropRefBefore}
@@ -465,7 +476,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             className="absolute top-0 bottom-0 border-l border-gray-200 dark:border-gray-700"
             style={{ left: `${indentLevel}px` }}
           />
-          <div className="space-y-1">
+          <div className="todo-list-container space-y-1">
             {todo.children.map((childTodo) => (
               <TodoItem
                 key={childTodo.id}

@@ -193,7 +193,7 @@ export const TodoList: React.FC<TodoListProps> = ({
       onToggleExpanded={onToggleExpanded}
       isAllChildrenCompleted={isAllChildrenCompleted}
     >
-      <div className="space-y-1">
+      <div className="todo-list-container space-y-1">
         {incompleteTodos.map((todo) => (
           <TodoItem
             key={todo.id}
