@@ -23,6 +23,18 @@
     -webkit-user-select: text;
     user-select: text;
   }
+  
+  /* Swipe gesture handling */
+  .todo-item.editing {
+    /* Allow swipe gestures while editing */
+    touch-action: manipulation;
+  }
+  
+  .todo-item input {
+    /* Allow text input but enable swipe detection */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+  }
 }
 
 @layer components {
@@ -35,6 +47,11 @@
   button, .todo-item, [role="button"] {
     touch-action: none; /* Required for reliable mobile drag */
     -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Allow double tap for text elements to enable editing */
+  .todo-item span {
+    touch-action: manipulation;
   }
   
   .todo-item:hover {

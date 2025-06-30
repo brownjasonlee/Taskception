@@ -25,6 +25,17 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const [editTitle, setEditTitle] = useState(todo.title);
   const [showTooltip, setShowTooltip] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
+  const [swipeState, setSwipeState] = useState<{
+    isSwipping: boolean;
+    startX: number;
+    startY: number;
+    startTime: number;
+  }>({
+    isSwipping: false,
+    startX: 0,
+    startY: 0,
+    startTime: 0
+  });
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -84,18 +95,79 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const canUncheck = todo.completed && !hasCompletedParent;
   const indentLevel = level * 12; // Reduced from 16px to 12px per level
 
-  // Handle double tap for editing
+  // Only handle swipe gestures in edit mode - let dnd-kit handle drag detection otherwise
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Only track swipes when editing to avoid interfering with drag
+    if (isEditing && !isDraggingThis) {
+      const touch = e.touches[0];
+      setSwipeState({
+        isSwipping: false,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startTime: Date.now()
+      });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Only process swipes when editing
+    if (isEditing && !isDraggingThis && e.touches.length === 1) {
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - swipeState.startX;
+      const deltaY = touch.clientY - swipeState.startY;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // Mark as swiping if moved more than 20px
+      if (distance > 20) {
+        setSwipeState(prev => ({ ...prev, isSwipping: true }));
+      }
+    }
+  };
+
   const handleTouchEnd = (e: React.TouchEvent) => {
     const currentTime = Date.now();
     
-    // Handle double tap for editing
-    if (currentTime - lastTapTime < 300) { // Double tap detected
-      e.preventDefault();
-      if (!isDraggingThis) {
-        setIsEditing(true);
+    // Handle swipe gestures (only in edit mode and if we actually swiped)
+    if (isEditing && swipeState.isSwipping) {
+      const swipeDuration = currentTime - swipeState.startTime;
+      
+      if (swipeDuration < 500) {
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - swipeState.startX;
+        const deltaY = touch.clientY - swipeState.startY;
+        
+        // Check if it's primarily a horizontal swipe
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+          e.preventDefault();
+          
+          if (deltaX > 0) {
+            // Swipe right while editing = create child (Tab behavior)
+            // Save current changes first - only update if there's content
+            if (editTitle.trim() !== "" && editTitle !== todo.title) {
+              onUpdate(todo.id, editTitle.trim());
+            }
+            setIsEditing(false);
+            
+            // Only create child if current todo has content
+            if (todo.title.trim() !== "" || editTitle.trim() !== "") {
+              // Expand parent to show new child
+              if (!todo.expanded) {
+                onToggleExpanded(todo.id);
+              }
+              
+              // Create child todo and provide haptic feedback
+              onAddChild("", todo.id);
+              if (navigator.vibrate) {
+                navigator.vibrate(50); // Light haptic feedback
+              }
+            }
+          }
+          // Note: Could add swipe left for outdent/unindent in the future
+        }
       }
     }
-    setLastTapTime(currentTime);
+    
+    setSwipeState(prev => ({ ...prev, isSwipping: false }));
   };
 
   const handleEdit = () => {
@@ -110,28 +182,32 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Save current changes
-      if (editTitle.trim() === "") {
-        removeTodoIfEmpty(todo.id, editTitle);
-      } else if (editTitle !== todo.title) {
+      // Save current changes - only update if there's content
+      if (editTitle.trim() !== "" && editTitle !== todo.title) {
         onUpdate(todo.id, editTitle.trim());
       }
       setIsEditing(false);
       
-      // Create a new sibling todo at the same level
-      onAddSibling("", parentId);
+      // Only create new sibling if current todo has content
+      if (todo.title.trim() !== "" || editTitle.trim() !== "") {
+        onAddSibling("", parentId);
+      }
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      // Save current changes
-      if (editTitle.trim() === "") {
-        removeTodoIfEmpty(todo.id, editTitle);
-      } else if (editTitle !== todo.title) {
+      // Save current changes - only update if there's content
+      if (editTitle.trim() !== "" && editTitle !== todo.title) {
         onUpdate(todo.id, editTitle.trim());
       }
       setIsEditing(false);
       
-      // Create a new child todo
-      onAddChild("", todo.id);
+      // Only create child if current todo has content
+      if (todo.title.trim() !== "" || editTitle.trim() !== "") {
+        // Expand parent to show new child
+        if (!todo.expanded) {
+          onToggleExpanded(todo.id);
+        }
+        onAddChild("", todo.id);
+      }
     } else if (e.key === 'Escape') {
       if (todo.title === "") {
         removeTodoIfEmpty(todo.id, todo.title);
@@ -192,7 +268,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   }
 
   return (
-    <div className="todo-item group relative">
+    <div className={`todo-item group relative ${isEditing ? 'editing' : ''}`}>
       {/* Before drop zone - invisible area above the todo item */}
       <div
         ref={setDropRefBefore}
@@ -230,7 +306,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         }`}
         {...attributes}
         {...listeners}
-        onTouchEnd={handleTouchEnd}
       >
         <div className="w-4 flex-shrink-0">
           <button
@@ -276,12 +351,26 @@ export const TodoItem: React.FC<TodoItemProps> = ({
               onChange={(e) => setEditTitle(e.target.value)}
               onBlur={handleEdit}
               onKeyDown={handleKeyPress}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
               className="w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ touchAction: 'manipulation' }}
               autoFocus
             />
           ) : (
             <span
               onDoubleClick={handleDoubleClick}
+              onTouchEnd={(e) => {
+                const currentTime = Date.now();
+                if (currentTime - lastTapTime < 300) {
+                  e.preventDefault();
+                  if (!isDraggingThis) {
+                    setIsEditing(true);
+                  }
+                }
+                setLastTapTime(currentTime);
+              }}
               className={`block truncate text-sm cursor-pointer select-none ${
                 todo.completed
                   ? 'line-through text-gray-500 dark:text-gray-400'

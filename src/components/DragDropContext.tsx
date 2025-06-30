@@ -26,6 +26,7 @@ interface DragDropContextProps {
   onDelete: (id: string) => void;
   onUpdate: (id: string, title: string) => void;
   onAddChild: (title: string, parentId: string) => void;
+  onAddSibling: (title: string, parentId: string | undefined) => void;
   onToggleExpanded: (id: string) => void;
   isAllChildrenCompleted: (todo: Todo) => boolean;
 }
@@ -53,6 +54,7 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
   onDelete,
   onUpdate,
   onAddChild,
+  onAddSibling,
   onToggleExpanded,
   isAllChildrenCompleted
 }) => {
@@ -122,6 +124,7 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
                 onDelete={onDelete}
                 onUpdate={onUpdate}
                 onAddChild={onAddChild}
+                onAddSibling={onAddSibling}
                 onToggleExpanded={onToggleExpanded}
                 isAllChildrenCompleted={isAllChildrenCompleted}
                 hasCompletedParent={false}
@@ -129,6 +132,7 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
                 removeTodoIfEmpty={() => {}}
                 delayedOverId={null}
                 delayedOverPosition={null}
+                parentId={undefined}
               />
             </div>
           ) : null}

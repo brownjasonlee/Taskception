@@ -189,6 +189,7 @@ export const TodoList: React.FC<TodoListProps> = ({
       onDelete={onDelete}
       onUpdate={onUpdate}
       onAddChild={onAddChild}
+      onAddSibling={onAddSibling}
       onToggleExpanded={onToggleExpanded}
       isAllChildrenCompleted={isAllChildrenCompleted}
     >
