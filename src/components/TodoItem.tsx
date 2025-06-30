@@ -317,7 +317,10 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       )}
       
       {todo.expanded && hasChildren && (
-        <div className="border-l border-gray-200 dark:border-gray-700 pl-1 pt-1">
+        <div 
+          className="border-l border-gray-200 dark:border-gray-700 pl-1 pt-1"
+          style={{ marginLeft: `${indentLevel + 24}px` }}
+        >
           <div className="space-y-1">
             {todo.children.map((childTodo) => (
               <TodoItem
