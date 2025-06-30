@@ -78,7 +78,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   const canComplete = !hasChildren || isAllChildrenCompleted(todo);
   const canUncheck = todo.completed && !hasCompletedParent;
-  const indentLevel = level * 20;
+  const indentLevel = level * 16;
 
   const handleEdit = () => {
     if (editTitle.trim() === "") {
@@ -317,7 +317,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       )}
       
       {todo.expanded && hasChildren && (
-        <div className="ml-5 border-l border-gray-200 dark:border-gray-700 pl-3 pt-1">
+        <div className="border-l border-gray-200 dark:border-gray-700 pl-1 pt-1">
           <div className="space-y-1">
             {todo.children.map((childTodo) => (
               <TodoItem
