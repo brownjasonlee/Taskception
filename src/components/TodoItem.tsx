@@ -143,34 +143,34 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
       <div 
         ref={isDragging ? undefined : setDragRef}
-        style={dragStyle}
+        style={{ 
+          marginLeft: `${indentLevel}px`,
+          ...dragStyle
+        }}
         className={`flex items-center gap-2 py-1 px-2 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${
           isDraggingThis ? 'opacity-50' : ''
         } ${
           todo.completed 
             ? 'bg-green-50 dark:bg-green-900/20 opacity-75' 
-            : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+            : 'bg-white dark:bg-gray-800'
         } ${
           isOver ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
         }`}
-        style={{ 
-          marginLeft: `${indentLevel}px`,
-          ...dragStyle
-        }}
         {...attributes}
         {...listeners}
       >
-        {hasChildren && (
+        <div className="w-4 flex-shrink-0">
           <button
             onClick={() => onToggleExpanded(todo.id)}
             className={`expand-button p-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ${
               todo.expanded ? 'expanded' : ''
-            }`}
+            } ${!hasChildren ? 'invisible' : ''}`}
             aria-label={todo.expanded ? 'Collapse' : 'Expand'}
+            disabled={!hasChildren}
           >
             <ChevronRight size={14} />
           </button>
-        )}
+        </div>
 
         <button
           onClick={handleToggle}
@@ -223,7 +223,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="flex items-center gap-0.5 opacity-100 transition-opacity duration-200">
           <div className="relative">
             <button
               onMouseEnter={() => setShowTooltip(true)}

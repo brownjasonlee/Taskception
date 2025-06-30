@@ -18,7 +18,7 @@
   }
   
   .todo-item:hover {
-    @apply transform translate-x-1;
+    /* @apply transform translate-x-1; */ /* Removed to prevent movement on hover */
   }
   
   .expand-button {
