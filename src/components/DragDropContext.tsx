@@ -5,6 +5,7 @@ import {
   DragOverEvent,
   DragStartEvent,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -60,6 +61,12 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
       activationConstraint: {
         distance: 8, // Require 8px of movement before drag starts
       },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 500, // 500ms delay for touch to start drag (long press)
+        tolerance: 5, // Allow 5px of movement during delay
+      },
     })
   );
 
@@ -93,7 +100,10 @@ export const TodoDragDropProvider: React.FC<DragDropContextProps> = ({
                 onToggleExpanded={onToggleExpanded}
                 isAllChildrenCompleted={isAllChildrenCompleted}
                 hasCompletedParent={false}
-                isDragging={true}
+                editingTodoId=""
+                removeTodoIfEmpty={() => {}}
+                delayedOverId={null}
+                delayedOverPosition={null}
               />
             </div>
           ) : null}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRight, Plus, Trash2, Info } from 'lucide-react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { Todo, TodoItemProps } from '../types/todo';
+import { TodoItemProps } from '../types/todo';
 import { useDragDrop } from './DragDropContext';
 
 export const TodoItem: React.FC<TodoItemProps> = ({
@@ -22,7 +22,12 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const [isEditing, setIsEditing] = useState(editingTodoId === todo.id);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  
   const inputRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (editingTodoId === todo.id && inputRef.current) {
@@ -79,6 +84,52 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const canComplete = !hasChildren || isAllChildrenCompleted(todo);
   const canUncheck = todo.completed && !hasCompletedParent;
   const indentLevel = level * 16;
+
+  // Touch event handlers
+  const handleTouchStart = () => {
+    if (isEditing) return;
+    
+    touchStartTimeRef.current = Date.now();
+    setIsLongPressing(false);
+    
+    // Start long press timer
+    longPressTimerRef.current = setTimeout(() => {
+      setIsLongPressing(true);
+      // Trigger haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 500); // 500ms for long press
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    
+    const touchDuration = Date.now() - touchStartTimeRef.current;
+    const currentTime = Date.now();
+    
+    // Handle double tap for editing
+    if (touchDuration < 200) { // Quick tap
+      if (currentTime - lastTapTime < 300) { // Double tap detected
+        e.preventDefault();
+        if (!isDraggingThis && !isLongPressing) {
+          setIsEditing(true);
+        }
+      }
+      setLastTapTime(currentTime);
+    }
+    
+    setIsLongPressing(false);
+  };
+
+  const handleTouchMove = () => {
+    // Cancel long press if user moves finger
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  };
 
   const handleEdit = () => {
     if (editTitle.trim() === "") {
@@ -140,6 +191,15 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const showDropHighlightBefore = showDropHighlight && delayedOverPosition === 'before';
   const showDropHighlightAfter = showDropHighlight && delayedOverPosition === 'after';
 
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
   if (isDraggingThis && !isActive) {
     return (
       <div 
@@ -182,9 +242,14 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             : 'bg-white dark:bg-gray-800'
         } ${
           showDropHighlightInside ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
+        } ${
+          isLongPressing ? 'ring-2 ring-blue-400 scale-105 shadow-lg' : ''
         }`}
         {...attributes}
         {...listeners}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
       >
         <div className="w-4 flex-shrink-0">
           <button
@@ -242,7 +307,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
                   ? 'line-through text-gray-500 dark:text-gray-400'
                   : 'text-gray-900 dark:text-white'
               }`}
-              title="Double-click to edit"
+              title="Double-click or double-tap to edit • Hold down to drag"
             >
               {todo.title}
               {showCompletionIndicator && (
