@@ -16,25 +16,35 @@ export default defineConfig({
         theme_color: '#3b82f6',
         background_color: '#ffffff',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'portrait-primary',
         scope: '/',
         start_url: '/',
+        id: '/',
+        categories: ['productivity', 'utilities'],
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: 'apple-touch-icon.png',
+            sizes: '180x180',
+            type: 'image/png',
+            purpose: 'any'
           }
         ]
       },
@@ -69,10 +79,14 @@ export default defineConfig({
               }
             }
           }
-        ]
+        ],
+        // Ensure offline page is cached
+        navigateFallback: null,
+        navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/]
       },
       devOptions: {
-        enabled: true
+        enabled: true,
+        type: 'module'
       }
     })
   ],
@@ -80,7 +94,7 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: [
-      'slow-ears-scream.loca.lt'
+      'old-actors-rest.loca.lt'
     ],
   }
 })
