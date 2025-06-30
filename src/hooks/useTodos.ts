@@ -410,6 +410,10 @@ export const useTodos = () => {
             
             if (todo.id === targetId) {
               if (position === 'inside') {
+                // Prevent moving uncompleted task into a completed parent
+                if (todo.completed && !draggedTodo.completed) {
+                  return todos; // Do not allow the move
+                }
                 return todos.map(t => 
                   t.id === targetId 
                     ? { ...t, children: [...t.children, draggedTodo], expanded: true }
