@@ -16,6 +16,18 @@
   .todo-item {
     @apply transition-all duration-200 ease-in-out;
   }
+
+  .touch-drag-active {
+    touch-action: none !important;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .drag-in-progress body {
+    overflow: hidden;
+    touch-action: none;
+  }
   
   .todo-item:hover {
     /* @apply transform translate-x-1; */ /* Removed to prevent movement on hover */

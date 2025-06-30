@@ -95,12 +95,12 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     // Start long press timer
     longPressTimerRef.current = setTimeout(() => {
       setIsLongPressing(true);
+      // Add class to prevent body scroll
+      document.body.classList.add('drag-in-progress');
       // Trigger haptic feedback if available
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
-      // Prevent scrolling once long press is detected
-      e.preventDefault();
     }, 500); // 500ms for long press
   };
 
@@ -123,14 +123,14 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       setLastTapTime(currentTime);
     }
     
+    // Remove drag class when touch ends
+    document.body.classList.remove('drag-in-progress');
     setIsLongPressing(false);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    // Prevent scrolling during long press or drag
-    if (isLongPressing || isDraggingThis) {
-      e.preventDefault();
-    }
+    // Always prevent scrolling on touch move for todo items
+    e.preventDefault();
     
     // Cancel long press if user moves finger significantly before 500ms
     if (longPressTimerRef.current && !isLongPressing) {
@@ -198,12 +198,13 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const showDropHighlightBefore = showDropHighlight && delayedOverPosition === 'before';
   const showDropHighlightAfter = showDropHighlight && delayedOverPosition === 'after';
 
-  // Clean up timer on unmount
+  // Clean up timer and drag class on unmount
   useEffect(() => {
     return () => {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
       }
+      document.body.classList.remove('drag-in-progress');
     };
   }, []);
 
@@ -239,7 +240,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         ref={setDragRef}
         style={{ 
           marginLeft: `${indentLevel}px`,
-          touchAction: isLongPressing || isDraggingThis ? 'none' : 'auto',
           ...dragStyle
         }}
         className={`flex items-center gap-2 py-1 px-2 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${
@@ -252,6 +252,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           showDropHighlightInside ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
         } ${
           isLongPressing ? 'ring-2 ring-blue-400 scale-105 shadow-lg' : ''
+        } ${
+          isLongPressing || isDraggingThis ? 'touch-drag-active' : ''
         }`}
         {...attributes}
         {...listeners}
