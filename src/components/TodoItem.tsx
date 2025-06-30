@@ -53,7 +53,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   // Droppable setup for different drop zones
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `${todo.id}-drop`,
-    disabled: isDragging || isActive
+    disabled: isDragging || isActive || todo.completed
   });
 
   const { setNodeRef: setBeforeDropRef, isOver: isOverBefore } = useDroppable({
