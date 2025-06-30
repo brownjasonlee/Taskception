@@ -1,23 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRight, Plus, Trash2, Info } from 'lucide-react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { Todo } from '../types/todo';
+import { Todo, TodoItemProps } from '../types/todo';
 import { useDragDrop } from './DragDropContext';
-
-interface TodoItemProps {
-  todo: Todo;
-  level: number;
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-  onUpdate: (id: string, title: string) => void;
-  onAddChild: (title: string, parentId: string) => void;
-  onToggleExpanded: (id: string) => void;
-  isAllChildrenCompleted: (todo: Todo) => boolean;
-  hasCompletedParent: boolean;
-  isDragging?: boolean;
-  editingTodoId: string | null;
-  removeTodoIfEmpty: (id: string, currentTitle: string) => void;
-}
 
 export const TodoItem: React.FC<TodoItemProps> = ({
   todo,
@@ -29,9 +14,10 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   onToggleExpanded,
   isAllChildrenCompleted,
   hasCompletedParent,
-  isDragging = false,
   editingTodoId,
-  removeTodoIfEmpty
+  removeTodoIfEmpty,
+  delayedOverId,
+  delayedOverPosition
 }) => {
   const [isEditing, setIsEditing] = useState(editingTodoId === todo.id);
   const [editTitle, setEditTitle] = useState(todo.title);
@@ -56,7 +42,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     isDragging: isDraggingThis
   } = useDraggable({
     id: todo.id,
-    disabled: isDragging || isEditing
+    disabled: isActive || isEditing
   });
 
   const hasChildren = todo.children.length > 0;
@@ -66,9 +52,28 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const showCompletionIndicator = hasChildren && totalChildrenCount > 0;
 
   // Droppable setup for different drop zones
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
+  const {
+    setNodeRef: setDropRefInside,
+    // isOver: isOverInside // No longer directly used, relies on delayedOverId
+  } = useDroppable({
     id: `${todo.id}-drop`,
-    disabled: isDragging || isActive || todo.completed
+    disabled: isDraggingThis || isActive || todo.completed
+  });
+
+  const {
+    setNodeRef: setDropRefBefore,
+    // isOver: isOverBefore // No longer directly used, relies on delayedOverId
+  } = useDroppable({
+    id: `${todo.id}-before`,
+    disabled: isDraggingThis || isActive || todo.completed
+  });
+
+  const {
+    setNodeRef: setDropRefAfter,
+    // isOver: isOverAfter // No longer directly used, relies on delayedOverId
+  } = useDroppable({
+    id: `${todo.id}-after`,
+    disabled: isDraggingThis || isActive || todo.completed
   });
 
   const canComplete = !hasChildren || isAllChildrenCompleted(todo);
@@ -98,7 +103,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   };
 
   const handleDoubleClick = () => {
-    if (!isDragging) {
+    if (!isDraggingThis) {
       setIsEditing(true);
     }
   };
@@ -130,7 +135,12 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     zIndex: 1000
   } : undefined;
 
-  if (isDraggingThis && !isDragging) {
+  const showDropHighlight = delayedOverId === todo.id;
+  const showDropHighlightInside = showDropHighlight && delayedOverPosition === 'inside';
+  const showDropHighlightBefore = showDropHighlight && delayedOverPosition === 'before';
+  const showDropHighlightAfter = showDropHighlight && delayedOverPosition === 'after';
+
+  if (isDraggingThis && !isActive) {
     return (
       <div 
         style={{ marginLeft: `${indentLevel}px` }}
@@ -141,8 +151,15 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   return (
     <div className="todo-item group relative">
+      {showDropHighlightBefore && (
+        <div 
+          ref={setDropRefBefore}
+          className="absolute top-0 left-0 right-0 h-1 bg-blue-500 rounded-full -mt-0.5 z-10"
+          style={{ marginLeft: `${indentLevel}px` }}
+        />
+      )}
       <div 
-        ref={isDragging ? undefined : setDragRef}
+        ref={setDragRef}
         style={{ 
           marginLeft: `${indentLevel}px`,
           ...dragStyle
@@ -154,7 +171,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             ? 'bg-green-50 dark:bg-green-900/20 opacity-75' 
             : 'bg-white dark:bg-gray-800'
         } ${
-          isOver ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
+          showDropHighlightInside ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
         }`}
         {...attributes}
         {...listeners}
@@ -193,10 +210,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         </button>
 
         <div 
-          ref={setDropRef}
-          className={`flex-1 min-w-0 transition-all duration-200 ${
-            isOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-1' : ''
-          }`}
+          ref={setDropRefInside}
+          className={`flex-1 min-w-0 transition-all duration-200 `}
         >
           {isEditing ? (
             <input
@@ -250,10 +265,17 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             </button>
             
             {showTooltip && (
-              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-700 p-3 rounded-lg shadow-lg z-20 text-xs text-gray-700 dark:text-gray-300 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <p><strong>Created:</strong> {formatDate(todo.createdAt)}</p>
-                <p><strong>Last Updated:</strong> {formatDate(todo.updatedAt)}</p>
-                {todo.endDate && <p><strong>Completed:</strong> {formatDate(todo.endDate)}</p>}
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 p-2 rounded-lg shadow-lg text-xs text-gray-700 dark:text-gray-200 z-10">
+                <p className="font-semibold">Created:</p>
+                <p>{formatDate(todo.createdAt)}</p>
+                <p className="font-semibold mt-2">Last Updated:</p>
+                <p>{formatDate(todo.updatedAt)}</p>
+                {todo.endDate && (
+                  <>
+                    <p className="font-semibold mt-2">Completed:</p>
+                    <p>{formatDate(todo.endDate)}</p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -266,25 +288,35 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           </button>
         </div>
       </div>
-
+      {showDropHighlightAfter && (
+        <div 
+          ref={setDropRefAfter}
+          className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 rounded-full -mb-0.5 z-10"
+          style={{ marginLeft: `${indentLevel}px` }}
+        />
+      )}
       {todo.expanded && hasChildren && (
-        <div className="space-y-1 mt-1">
-          {todo.children.map(child => (
-            <TodoItem
-              key={child.id}
-              todo={child}
-              level={level + 1}
-              onToggle={onToggle}
-              onDelete={onDelete}
-              onUpdate={onUpdate}
-              onAddChild={onAddChild}
-              onToggleExpanded={onToggleExpanded}
-              isAllChildrenCompleted={isAllChildrenCompleted}
-              hasCompletedParent={todo.completed}
-              editingTodoId={editingTodoId}
-              removeTodoIfEmpty={removeTodoIfEmpty}
-            />
-          ))}
+        <div className="ml-5 border-l border-gray-200 dark:border-gray-700 pl-3 pt-1">
+          <div className="space-y-1">
+            {todo.children.map((childTodo) => (
+              <TodoItem
+                key={childTodo.id}
+                todo={childTodo}
+                level={level + 1}
+                onToggle={onToggle}
+                onDelete={onDelete}
+                onUpdate={onUpdate}
+                onAddChild={onAddChild}
+                onToggleExpanded={onToggleExpanded}
+                isAllChildrenCompleted={isAllChildrenCompleted}
+                hasCompletedParent={todo.completed || hasCompletedParent}
+                editingTodoId={editingTodoId}
+                removeTodoIfEmpty={removeTodoIfEmpty}
+                delayedOverId={delayedOverId}
+                delayedOverPosition={delayedOverPosition}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

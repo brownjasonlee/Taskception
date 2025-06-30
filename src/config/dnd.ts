@@ -1,1 +1,1 @@
-export const DRAG_DELAY_MS = 500; 
+export const DRAG_DELAY_MS = 2000; 

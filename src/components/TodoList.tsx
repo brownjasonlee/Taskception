@@ -18,6 +18,7 @@ interface TodoListProps {
   moveTodo: (draggedId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => void;
   editingTodoId: string | null;
   removeTodoIfEmpty: (id: string, currentTitle: string) => void;
+  toggleExpanded: (id: string) => void;
 }
 
 export const TodoList: React.FC<TodoListProps> = ({
@@ -31,12 +32,15 @@ export const TodoList: React.FC<TodoListProps> = ({
   onAddTodo,
   moveTodo,
   editingTodoId,
-  removeTodoIfEmpty
+  removeTodoIfEmpty,
+  toggleExpanded
 }) => {
   const [showCompleted, setShowCompleted] = React.useState(true);
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [activeTodo, setActiveTodo] = React.useState<Todo | null>(null);
   const [dragTimer, setDragTimer] = React.useState<NodeJS.Timeout | null>(null);
+  const [delayedOverId, setDelayedOverId] = React.useState<string | null>(null);
+  const [delayedOverPosition, setDelayedOverPosition] = React.useState<'before' | 'after' | 'inside' | null>(null);
 
   const findTodoById = (todos: Todo[], id: string): Todo | null => {
     for (const todo of todos) {
@@ -56,7 +60,61 @@ export const TodoList: React.FC<TodoListProps> = ({
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    // Handle drag over logic for visual feedback
+    const { over } = event;
+
+    if (!over) {
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        setDragTimer(null);
+      }
+      setDelayedOverId(null);
+      setDelayedOverPosition(null);
+      return;
+    }
+
+    const overId = over.id as string;
+    let potentialPosition: 'before' | 'after' | 'inside' | null = null;
+    let actualOverId: string | null = null;
+
+    if (overId.endsWith('-before')) {
+      actualOverId = overId.replace('-before', '');
+      potentialPosition = 'before';
+    } else if (overId.endsWith('-after')) {
+      actualOverId = overId.replace('-after', '');
+      potentialPosition = 'after';
+    } else if (overId.endsWith('-drop')) {
+      actualOverId = overId.replace('-drop', '');
+      potentialPosition = 'inside';
+    } else {
+      // If not a specific drop zone, clear any pending delayed state
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        setDragTimer(null);
+      }
+      setDelayedOverId(null);
+      setDelayedOverPosition(null);
+      return;
+    }
+
+    // Check if the current potential drop is different from the already delayed one
+    if (actualOverId !== delayedOverId || potentialPosition !== delayedOverPosition) {
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+      }
+
+      const timer = setTimeout(() => {
+        setDelayedOverId(actualOverId);
+        setDelayedOverPosition(potentialPosition);
+        // If moving inside or to a different parent level, also expand the target parent after a delay
+        if (potentialPosition === 'inside' && actualOverId) {
+          const targetTodo = findTodoById(todos, actualOverId);
+          if (targetTodo && !targetTodo.expanded) {
+            toggleExpanded(actualOverId);
+          }
+        }
+      }, DRAG_DELAY_MS);
+      setDragTimer(timer);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -78,18 +136,9 @@ export const TodoList: React.FC<TodoListProps> = ({
     let targetId: string | null = null;
     let position: 'before' | 'after' | 'inside' | null = null;
 
-    if (overId.endsWith('-before')) {
-      targetId = overId.replace('-before', '');
-      position = 'before';
-    } else if (overId.endsWith('-after')) {
-      targetId = overId.replace('-after', '');
-      position = 'after';
-    } else if (overId.endsWith('-drop')) {
-      targetId = overId.replace('-drop', '');
-      position = 'inside';
-    } else {
-      return;
-    }
+    // Use the delayed over ID and position for the actual move
+    targetId = delayedOverId;
+    position = delayedOverPosition;
 
     if (!targetId || !position) {
         return;
@@ -101,14 +150,7 @@ export const TodoList: React.FC<TodoListProps> = ({
       return;
     }
 
-    if (position === 'inside') {
-      const timer = setTimeout(() => {
-        moveTodo(draggedId, targetId, position);
-      }, DRAG_DELAY_MS);
-      setDragTimer(timer);
-    } else {
-      moveTodo(draggedId, targetId, position);
-    }
+    moveTodo(draggedId, targetId, position);
   };
 
   if (todos.length === 0) {
@@ -153,6 +195,8 @@ export const TodoList: React.FC<TodoListProps> = ({
             hasCompletedParent={false}
             editingTodoId={editingTodoId}
             removeTodoIfEmpty={removeTodoIfEmpty}
+            delayedOverId={delayedOverId}
+            delayedOverPosition={delayedOverPosition}
           />
         ))}
 
@@ -186,6 +230,8 @@ export const TodoList: React.FC<TodoListProps> = ({
                     hasCompletedParent={false}
                     editingTodoId={editingTodoId}
                     removeTodoIfEmpty={removeTodoIfEmpty}
+                    delayedOverId={delayedOverId}
+                    delayedOverPosition={delayedOverPosition}
                   />
                 ))}
               </div>

@@ -52,6 +52,7 @@ function App() {
           moveTodo={moveTodo}
           editingTodoId={editingTodoId}
           removeTodoIfEmpty={removeTodoIfEmpty}
+          toggleExpanded={toggleExpanded}
         />
       </main>
     </div>

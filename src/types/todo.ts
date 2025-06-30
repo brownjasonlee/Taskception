@@ -71,3 +71,19 @@ export interface ToggleExpansionOperation extends BaseOperation {
 }
 
 export type TodoOperation = AddOperation | DeleteOperation | UpdateOperation | MoveOperation | ToggleCompletionOperation | ToggleExpansionOperation;
+
+export interface TodoItemProps {
+  todo: Todo;
+  level: number;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, title: string) => void;
+  onAddChild: (title: string, parentId: string) => void;
+  onToggleExpanded: (id: string) => void;
+  isAllChildrenCompleted: (todo: Todo) => boolean;
+  hasCompletedParent: boolean;
+  editingTodoId: string | null;
+  removeTodoIfEmpty: (id: string, currentTitle: string) => void;
+  delayedOverId: string | null;
+  delayedOverPosition: 'before' | 'after' | 'inside' | null;
+}
