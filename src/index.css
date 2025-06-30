@@ -5,10 +5,23 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    /* Prevent zoom on mobile */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
   }
   
   body {
     @apply transition-colors duration-200;
+    /* Prevent zoom and improve mobile touch */
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Allow text selection in input fields */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }
 
@@ -16,6 +29,12 @@
   .todo-item {
     @apply transition-all duration-200 ease-in-out;
     touch-action: manipulation; /* Industry standard for draggable elements */
+  }
+
+  /* Prevent double-tap zoom on buttons and interactive elements */
+  button, .todo-item, [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
   
   .todo-item:hover {
