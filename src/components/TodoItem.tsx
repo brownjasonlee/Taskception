@@ -86,7 +86,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const indentLevel = level * 16;
 
   // Touch event handlers
-  const handleTouchStart = () => {
+  const handleTouchStart = (e: React.TouchEvent) => {
     if (isEditing) return;
     
     touchStartTimeRef.current = Date.now();
@@ -99,6 +99,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
+      // Prevent scrolling once long press is detected
+      e.preventDefault();
     }, 500); // 500ms for long press
   };
 
@@ -124,9 +126,14 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     setIsLongPressing(false);
   };
 
-  const handleTouchMove = () => {
-    // Cancel long press if user moves finger
-    if (longPressTimerRef.current) {
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Prevent scrolling during long press or drag
+    if (isLongPressing || isDraggingThis) {
+      e.preventDefault();
+    }
+    
+    // Cancel long press if user moves finger significantly before 500ms
+    if (longPressTimerRef.current && !isLongPressing) {
       clearTimeout(longPressTimerRef.current);
     }
   };
@@ -232,6 +239,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         ref={setDragRef}
         style={{ 
           marginLeft: `${indentLevel}px`,
+          touchAction: isLongPressing || isDraggingThis ? 'none' : 'auto',
           ...dragStyle
         }}
         className={`flex items-center gap-2 py-1 px-2 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${
