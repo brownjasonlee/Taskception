@@ -31,7 +31,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   onAddSibling,
   onToggleExpanded,
   isAllChildrenCompleted,
-  onAddTodo,
+  onAddTodo: _onAddTodo,
   moveTodo,
   editingTodoId,
   removeTodoIfEmpty,
