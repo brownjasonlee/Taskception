@@ -151,13 +151,23 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   return (
     <div className="todo-item group relative">
+      {/* Before drop zone - invisible area above the todo item */}
+      <div
+        ref={setDropRefBefore}
+        className={`absolute top-0 left-0 right-0 h-2 -mt-1 z-20 ${
+          showDropHighlightBefore ? 'bg-blue-100 dark:bg-blue-900' : ''
+        }`}
+        style={{ marginLeft: `${indentLevel}px` }}
+      />
+      
+      {/* Visual indicator for before drop */}
       {showDropHighlightBefore && (
         <div 
-          ref={setDropRefBefore}
-          className="absolute top-0 left-0 right-0 h-1 bg-blue-500 rounded-full -mt-0.5 z-10"
+          className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full -mt-0.25 z-30"
           style={{ marginLeft: `${indentLevel}px` }}
         />
       )}
+      
       <div 
         ref={setDragRef}
         style={{ 
@@ -288,13 +298,24 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           </button>
         </div>
       </div>
+      
+      {/* After drop zone - invisible area below the todo item */}
+      <div
+        ref={setDropRefAfter}
+        className={`absolute bottom-0 left-0 right-0 h-2 -mb-1 z-20 ${
+          showDropHighlightAfter ? 'bg-blue-100 dark:bg-blue-900' : ''
+        }`}
+        style={{ marginLeft: `${indentLevel}px` }}
+      />
+      
+      {/* Visual indicator for after drop */}
       {showDropHighlightAfter && (
         <div 
-          ref={setDropRefAfter}
-          className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 rounded-full -mb-0.5 z-10"
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full -mb-0.25 z-30"
           style={{ marginLeft: `${indentLevel}px` }}
         />
       )}
+      
       {todo.expanded && hasChildren && (
         <div className="ml-5 border-l border-gray-200 dark:border-gray-700 pl-3 pt-1">
           <div className="space-y-1">

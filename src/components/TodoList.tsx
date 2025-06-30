@@ -4,7 +4,7 @@ import { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
 import { Todo } from '../types/todo';
 import { TodoItem } from './TodoItem';
 import { TodoDragDropProvider } from './DragDropContext';
-import { DRAG_DELAY_MS } from '../config/dnd';
+import { DRAG_NEST_DELAY_MS, DRAG_REORDER_DELAY_MS } from '../config/dnd';
 
 interface TodoListProps {
   todos: Todo[];
@@ -102,6 +102,9 @@ export const TodoList: React.FC<TodoListProps> = ({
         clearTimeout(dragTimer);
       }
 
+      // Use different delays for different operations
+      const delay = potentialPosition === 'inside' ? DRAG_NEST_DELAY_MS : DRAG_REORDER_DELAY_MS;
+
       const timer = setTimeout(() => {
         setDelayedOverId(actualOverId);
         setDelayedOverPosition(potentialPosition);
@@ -112,7 +115,7 @@ export const TodoList: React.FC<TodoListProps> = ({
             toggleExpanded(actualOverId);
           }
         }
-      }, DRAG_DELAY_MS);
+      }, delay);
       setDragTimer(timer);
     }
   };
@@ -128,10 +131,13 @@ export const TodoList: React.FC<TodoListProps> = ({
     setActiveId(null);
     setActiveTodo(null);
 
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id) {
+      setDelayedOverId(null);
+      setDelayedOverPosition(null);
+      return;
+    }
 
     const draggedId = active.id as string;
-    const overId = over.id as string;
 
     let targetId: string | null = null;
     let position: 'before' | 'after' | 'inside' | null = null;
@@ -139,6 +145,10 @@ export const TodoList: React.FC<TodoListProps> = ({
     // Use the delayed over ID and position for the actual move
     targetId = delayedOverId;
     position = delayedOverPosition;
+
+    // Reset delayed state
+    setDelayedOverId(null);
+    setDelayedOverPosition(null);
 
     if (!targetId || !position) {
         return;
