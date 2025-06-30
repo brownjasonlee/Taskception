@@ -1,6 +1,6 @@
-import React from 'react';
 import { Header } from './components/Header';
 import { TodoList } from './components/TodoList';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { useTheme } from './hooks/useTheme';
 import { useTodos } from './hooks/useTodos';
 
@@ -56,6 +56,9 @@ function App() {
           toggleExpanded={toggleExpanded}
         />
       </main>
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }

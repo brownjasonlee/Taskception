@@ -119,7 +119,7 @@ export const useTodos = () => {
   }, []);
 
   // Helper to find a todo and its parent by ID
-  const findTodoAndParentById = useCallback((todos: Todo[], id: string, parentId: string | undefined = undefined, index: number = -1, rootTodos: Todo[]): { todo: Todo | null, parent: Todo | null, index: number, parentId: string | undefined } => {
+  const findTodoAndParentById = useCallback((todos: Todo[], id: string, parentId: string | undefined = undefined, _index: number = -1, rootTodos: Todo[]): { todo: Todo | null, parent: Todo | null, index: number, parentId: string | undefined } => {
     for (let i = 0; i < todos.length; i++) {
       const todo = todos[i];
       if (todo.id === id) {
@@ -210,7 +210,7 @@ export const useTodos = () => {
       }
       case 'update': {
         const op = operation as UpdateOperation;
-        return updateTodoInTree(newTodos, op.id, (todo) => isRedo ? op.newTodo : op.oldTodo);
+        return updateTodoInTree(newTodos, op.id, (_todo) => isRedo ? op.newTodo : op.oldTodo);
       }
       case 'move': {
         const op = operation as MoveOperation;
@@ -327,7 +327,7 @@ export const useTodos = () => {
 
   const deleteTodo = useCallback((id: string) => {
     setTodos(prevTodos => {
-      const { todo: deletedTodo, parent, index, parentId } = findTodoAndParentById(prevTodos, id, undefined, undefined, prevTodos);
+      const { todo: deletedTodo, parent: _parent, index, parentId } = findTodoAndParentById(prevTodos, id, undefined, undefined, prevTodos);
       if (!deletedTodo) return prevTodos;
 
       recordOperation({
@@ -481,12 +481,12 @@ export const useTodos = () => {
   }, [findTodoById, removeTodoFromTree, recordOperation, findTodoAndParentById]);
 
   // This reorderTodos is currently unused but might be used if dnd-kit changes its API
-  const reorderTodos = useCallback((newTodos: Todo[]) => {
-    setTodos(prevTodos => {
-      // This function would need to capture a 'move' operation if it were actively used
-      return newTodos;
-    });
-  }, []);
+  // const _reorderTodos = useCallback((newTodos: Todo[]) => {
+  //   setTodos((_prevTodos) => {
+  //     // This function would need to capture a 'move' operation if it were actively used
+  //     return newTodos;
+  //   });
+  // }, []);
 
   const removeTodoIfEmpty = useCallback((id: string, currentTitle: string) => {
     if (currentTitle.trim() === "") {
