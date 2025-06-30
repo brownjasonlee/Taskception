@@ -14,7 +14,9 @@ function App() {
     updateTodo, 
     toggleExpanded,
     isAllChildrenCompleted,
-    moveTodo
+    moveTodo,
+    undo,
+    canUndo
   } = useTodos();
 
   const handleAddChild = (title: string, parentId: string) => {
@@ -26,6 +28,8 @@ function App() {
       <Header 
         isDark={isDark} 
         toggleTheme={toggleTheme}
+        onUndo={undo}
+        canUndo={canUndo}
       />
       
       <main className="max-w-md mx-auto px-4 py-6">

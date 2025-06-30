@@ -81,8 +81,31 @@ const initialTodos: Todo[] = [
   }
 ];
 
+const MAX_HISTORY_SIZE = 10; // Limit history to the last 10 changes
+
 export const useTodos = () => {
   const [todos, setTodos] = useState<Todo[]>(initialTodos);
+  const [history, setHistory] = useState<Todo[][]>([initialTodos]);
+  const [historyPointer, setHistoryPointer] = useState(0);
+
+  const saveState = useCallback((newTodos: Todo[]) => {
+    setHistory(prevHistory => {
+      const newHistory = prevHistory.slice(0, historyPointer + 1); // Truncate history if we undid
+      if (newHistory.length > MAX_HISTORY_SIZE) {
+        newHistory.shift(); // Remove the oldest state
+      }
+      return [...newHistory, newTodos];
+    });
+    setHistoryPointer(prevPointer => Math.min(prevPointer + 1, MAX_HISTORY_SIZE));
+  }, [historyPointer]);
+
+  const undo = useCallback(() => {
+    setHistoryPointer(prevPointer => {
+      const newPointer = Math.max(0, prevPointer - 1);
+      setTodos(history[newPointer]);
+      return newPointer;
+    });
+  }, [history]);
 
   const findTodoById = useCallback((todos: Todo[], id: string): Todo | null => {
     for (const todo of todos) {
@@ -155,12 +178,15 @@ export const useTodos = () => {
 
   // New function to handle reordering
   const reorderTodos = useCallback((newTodos: Todo[]) => {
+    saveState(newTodos); // Save state before reordering
     setTodos(newTodos);
-  }, []);
+  }, [saveState]);
 
   // Function to move a todo from one location to another
   const moveTodo = useCallback((draggedId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => {
     setTodos(prevTodos => {
+      saveState(prevTodos); // Save state before moving
+
       // Find and remove the dragged todo
       const draggedTodo = findTodoById(prevTodos, draggedId);
       if (!draggedTodo) return prevTodos;
@@ -213,7 +239,7 @@ export const useTodos = () => {
 
       return insertTodo(todosWithoutDragged, targetId, draggedTodo, position);
     });
-  }, [findTodoById, removeTodoFromTree]);
+  }, [findTodoById, removeTodoFromTree, saveState]);
 
   const addTodo = useCallback((title: string, parentId?: string) => {
     const now = new Date();
@@ -228,13 +254,15 @@ export const useTodos = () => {
     };
 
     setTodos(prevTodos => {
+      saveState(prevTodos); // Save state before adding
       const updated = addTodoToTree(prevTodos, parentId, newTodo);
       return sortTodos(updated);
     });
-  }, [addTodoToTree, sortTodos]);
+  }, [addTodoToTree, sortTodos, saveState]);
 
   const toggleTodo = useCallback((id: string) => {
     setTodos(prevTodos => {
+      saveState(prevTodos); // Save state before toggling
       const updated = updateTodoInTree(prevTodos, id, (todo) => {
         const canToggle = todo.children.length === 0 || isAllChildrenCompleted(todo);
         const now = new Date();
@@ -252,31 +280,37 @@ export const useTodos = () => {
       });
       return sortTodos(updated);
     });
-  }, [updateTodoInTree, isAllChildrenCompleted, sortTodos]);
+  }, [updateTodoInTree, isAllChildrenCompleted, sortTodos, saveState]);
 
   const deleteTodo = useCallback((id: string) => {
-    setTodos(prevTodos => removeTodoFromTree(prevTodos, id));
-  }, [removeTodoFromTree]);
+    setTodos(prevTodos => {
+      saveState(prevTodos); // Save state before deleting
+      return sortTodos(removeTodoFromTree(prevTodos, id));
+    });
+  }, [removeTodoFromTree, sortTodos, saveState]);
 
   const updateTodo = useCallback((id: string, title: string) => {
     setTodos(prevTodos => {
-      return updateTodoInTree(prevTodos, id, (todo) => ({
+      saveState(prevTodos); // Save state before updating
+      const updated = updateTodoInTree(prevTodos, id, (todo) => ({
         ...todo,
         title,
         updatedAt: new Date()
       }));
+      return sortTodos(updated);
     });
-  }, [updateTodoInTree]);
+  }, [updateTodoInTree, sortTodos, saveState]);
 
   const toggleExpanded = useCallback((id: string) => {
     setTodos(prevTodos => {
+      saveState(prevTodos); // Save state before toggling expanded
       return updateTodoInTree(prevTodos, id, (todo) => ({
         ...todo,
         expanded: !todo.expanded,
         updatedAt: new Date()
       }));
     });
-  }, [updateTodoInTree]);
+  }, [updateTodoInTree, saveState]);
 
   return {
     todos,
@@ -286,7 +320,8 @@ export const useTodos = () => {
     updateTodo,
     toggleExpanded,
     isAllChildrenCompleted,
-    reorderTodos,
-    moveTodo
+    moveTodo,
+    undo,
+    canUndo: historyPointer > 0
   };
 };
