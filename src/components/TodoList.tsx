@@ -77,9 +77,8 @@ export const TodoList: React.FC<TodoListProps> = ({
     const draggedId = active.id as string;
     const overId = over.id as string;
 
-    // Determine drop position based on over id
     let targetId: string | null = null;
-    let position: 'before' | 'after' | 'inside' = 'after';
+    let position: 'before' | 'after' | 'inside' | null = null;
 
     if (overId.endsWith('-before')) {
       targetId = overId.replace('-before', '');
@@ -91,15 +90,22 @@ export const TodoList: React.FC<TodoListProps> = ({
       targetId = overId.replace('-drop', '');
       position = 'inside';
     } else {
-      targetId = overId;
-      position = 'after';
+      return;
     }
 
-    // Add delay for cross-level moves
+    if (!targetId || !position) {
+        return;
+    }
+
+    const targetTodo = findTodoById(todos, targetId);
+    if (targetTodo && targetTodo.completed && position === 'inside') {
+      return;
+    }
+
     if (position === 'inside') {
       const timer = setTimeout(() => {
         moveTodo(draggedId, targetId, position);
-      }, 500); // 500ms delay for level changes
+      }, 500);
       setDragTimer(timer);
     } else {
       moveTodo(draggedId, targetId, position);
