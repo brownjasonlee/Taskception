@@ -12,7 +12,7 @@ This repository now includes a secure GitHub Actions workflow for automatically 
 - **Actions Used:**
   - `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2)
   - `actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af` (v4.1.0)
-  - `actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b` (v5.0.0)
+  - `actions/configure-pages@v5` (v5.0.0 - uses tag for compatibility)
   - `actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa` (v3.0.1)
   - `actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e` (v4.0.5)
 
@@ -156,6 +156,7 @@ When updating GitHub Actions, always:
 2. **Path Issues**: Verify base path configuration in vite.config.ts
 3. **Permission Errors**: Ensure GitHub Pages is enabled in repository settings
 4. **Database Connection**: App works without database - check Supabase secrets if persistence needed
+5. **Configure Pages Error**: If you see "TypeError: error must be an instance of Error" in the Configure Pages step, this is a known issue with SHA-pinned `configure-pages` action - the workflow uses `@v5` tag instead for compatibility
 
 ### Debug Steps
 1. Check the Actions tab for detailed logs
