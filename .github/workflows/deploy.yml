@@ -48,6 +48,19 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
+        continue-on-error: true
+      
+      # Fallback cache for when GitHub cache service has issues
+      # Pinned to commit SHA for security (actions/cache v4.1.2) 
+      - name: Cache node modules (fallback)
+        if: failure()
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+        continue-on-error: true
       
       # Install dependencies
       - name: Install dependencies

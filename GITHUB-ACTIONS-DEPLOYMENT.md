@@ -157,6 +157,7 @@ When updating GitHub Actions, always:
 3. **Permission Errors**: Ensure GitHub Pages is enabled in repository settings
 4. **Database Connection**: App works without database - check Supabase secrets if persistence needed
 5. **Configure Pages Error**: If you see "TypeError: error must be an instance of Error" in the Configure Pages step, this is a known issue with SHA-pinned `configure-pages` action - the workflow uses `@v5` tag instead for compatibility
+6. **Cache Service Warnings**: "Failed to save/restore: Cache service responded with 503" are temporary GitHub service issues and don't affect deployment success
 
 ### Debug Steps
 1. Check the Actions tab for detailed logs
