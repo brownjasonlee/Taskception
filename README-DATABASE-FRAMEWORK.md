@@ -20,11 +20,13 @@ const {
   addTodo, 
   toggleTodo, 
   loadFromDatabase,
-  saveToDatabase,
+  syncToDatabase,
   autoSync,
-  setAutoSync,
+  enableAutoSync,
+  disableAutoSync,
   isSynced,
-  lastSyncTime 
+  lastSyncTime,
+  debugDatabase
 } = useTodosWithDB();
 ```
 
@@ -65,37 +67,30 @@ const {
 
 ## 🗄️ Database Schema
 
-### Required Table Structure
+### Database Schema
+The complete migration file is available at `supabase/migrations/20241229_create_todos_table.sql`
+
+**Core table structure:**
 ```sql
 CREATE TABLE todos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  completed BOOLEAN DEFAULT false,
-  expanded BOOLEAN DEFAULT false,
+  title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+  completed BOOLEAN NOT NULL DEFAULT false,
+  expanded BOOLEAN NOT NULL DEFAULT false,
   parent_id UUID REFERENCES todos(id) ON DELETE CASCADE,
-  order_index INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  
-  -- Indexes for performance
-  INDEX idx_todos_parent_id (parent_id),
-  INDEX idx_todos_order (parent_id, order_index)
+  order_index INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
-
--- Auto-update timestamp trigger
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_update_todos_updated_at
-  BEFORE UPDATE ON todos
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at();
 ```
+
+**Features included:**
+- ✅ **Performance indexes** for parent_id, order, and full-text search
+- ✅ **Auto-updating timestamps** with triggers
+- ✅ **Order maintenance** triggers for consistent ordering
+- ✅ **Row Level Security** enabled for future multi-user support
+- ✅ **Recursive view** for advanced tree queries
+- ✅ **Data validation** constraints
 
 ## 🔌 Supabase Connection
 
@@ -116,10 +111,11 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 
 ### Auto-Sync Settings
 ```typescript
-const { setAutoSync, setSyncInterval } = useTodosWithDB();
+const { enableAutoSync, disableAutoSync, setSyncInterval } = useTodosWithDB();
 
 // Enable/disable auto-sync
-setAutoSync(true); // Default: true if Supabase configured
+enableAutoSync();   // Enable if Supabase configured
+disableAutoSync();  // Disable auto-sync
 
 // Change sync frequency
 setSyncInterval(60000); // 60 seconds (default: 30 seconds)
@@ -129,12 +125,12 @@ setSyncInterval(60000); // 60 seconds (default: 30 seconds)
 ```typescript
 // Manual operations
 await loadFromDatabase();     // Load from Supabase
-await saveToDatabase();       // Save to Supabase
-await syncWithDatabase();     // Bi-directional sync
+await syncToDatabase();       // Save to Supabase
 
 // Status checking
 console.log('Synced:', isSynced);
 console.log('Last sync:', lastSyncTime);
+console.log('Auto-sync enabled:', autoSync);
 ```
 
 ## 🧪 Development Tools
@@ -156,30 +152,23 @@ dbDevUtils.clearCache();         // Clear local cache
 
 ## 🔄 Integration Steps
 
-### Phase 1: Current State (No Changes Needed)
-- ✅ Keep using `useTodos()` as normal
-- ✅ Framework is ready but not active
+### ✅ Phase 1: COMPLETE - Framework Integration
+- ✅ App now uses `useTodosWithDB()` 
+- ✅ Framework is active with graceful fallback
 - ✅ All existing functionality preserved
 
-### Phase 2: Gradual Integration
-```typescript
-// Replace one component at a time
-import { useTodosWithDB } from './hooks/useTodosWithDB';
-
-function TodoApp() {
-  // Simple swap - everything else stays the same
-  const todos = useTodosWithDB();
-  
-  // All your existing code works unchanged
-  return <TodoList {...todos} />;
-}
+### Phase 2: Database Connection (Optional)
+```bash
+# Add Supabase credentials to .env.local
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
 ```
 
-### Phase 3: Full Database Sync
-- ✅ Auto-sync enabled by default
-- ✅ Real-time updates
-- ✅ Offline support
-- ✅ Conflict resolution
+### Phase 3: Future Enhancements (When Ready)
+- 🔄 **Real-time sync** (Supabase subscriptions)
+- 👥 **Multi-user support** (Row Level Security)
+- 🔍 **Search functionality** (full-text search)
+- 📱 **Offline-first** improvements
 
 ## 🚀 Scaling Features
 
@@ -213,4 +202,9 @@ function TodoApp() {
 
 ## 🤔 Next Steps
 
-The framework is ready to use! Simply replace `useTodos()` with `useTodosWithDB()` when you're ready to enable database sync. 
+✅ **Framework is active!** Your app now uses `useTodosWithDB()` with graceful fallback.
+
+**To enable database persistence:**
+1. Add Supabase credentials to `.env.local`
+2. Run the migration in your Supabase dashboard
+3. Enjoy automatic data persistence and sync! 🎉 
