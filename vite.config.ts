@@ -6,6 +6,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Set base path for GitHub Pages deployment
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [
     react(),
     VitePWA({
@@ -19,9 +21,9 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
-        id: '/',
+        scope: process.env.VITE_BASE_PATH || '/',
+        start_url: process.env.VITE_BASE_PATH || '/',
+        id: process.env.VITE_BASE_PATH || '/',
         categories: ['productivity', 'utilities'],
         icons: [
           {

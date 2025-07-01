@@ -112,7 +112,7 @@ export class DatabaseFramework<ClientType extends { id: string; createdAt: Date;
 
     try {
       // Try to query the table to see if it exists and what columns it has
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(this.tableName)
         .select('*')
         .limit(1);
