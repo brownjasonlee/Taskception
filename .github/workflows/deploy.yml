@@ -54,11 +54,9 @@ jobs:
         run: npm ci
       
       # Configure GitHub Pages
-      # Using v5 tag - this action requires the tag format for proper functionality
+      # Simplified configuration without explicit token parameter
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          static_site_generator: custom
       
       # Build the application
       - name: Build
