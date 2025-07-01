@@ -87,8 +87,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/]
       },
       devOptions: {
-        enabled: true,
-        type: 'module'
+        enabled: false  // Disable service worker in development for clean console
       }
     })
   ],
