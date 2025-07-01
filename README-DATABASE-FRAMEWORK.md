@@ -68,7 +68,7 @@ const {
 ## 🗄️ Database Schema
 
 ### Database Schema
-The complete migration file is available at `supabase/migrations/20241229_create_todos_table.sql`
+The complete migration file is available at `supabase/migrations/20250701_create_todos_table.sql`
 
 **Core table structure:**
 ```sql
@@ -138,10 +138,15 @@ console.log('Auto-sync enabled:', autoSync);
 ### Debug Console Commands
 ```javascript
 // Open browser console and try:
-dbDevUtils.testConnection();     // Test DB connection
-dbDevUtils.compareSchemas();     // Check local vs DB schema
-dbDevUtils.exportData();         // Export current data
-dbDevUtils.clearCache();         // Clear local cache
+window.dbUtils.test();           // Test DB connection
+window.dbUtils.export();         // Export current data (copies to clipboard)
+window.dbUtils.clear();          // Clear all data (with confirmation)
+window.dbUtils.db;               // Direct database access
+
+// Or use the direct methods:
+dbDevUtils.testConnection();     // Test connection
+dbDevUtils.exportData();         // Export data
+dbDevUtils.clearAllData();       // Clear data
 ```
 
 ### Development Mode Features

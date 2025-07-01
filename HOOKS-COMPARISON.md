@@ -152,9 +152,11 @@ npm run dev
 ### Debug Tools:
 ```javascript
 // Browser console
-todos.debugDatabase();  // Check connection status
-todos.isSynced;         // Check sync state
-todos.lastSyncTime;     // When last synced
+todos.debugDatabase();      // Check connection status
+todos.isSynced;             // Check sync state
+todos.lastSyncTime;         // When last synced
+window.dbUtils.test();      // Test DB connection
+window.dbUtils.export();    // Export data to clipboard
 ```
 
 ---

@@ -44,7 +44,7 @@ To get the project up and running on your local machine, follow these steps:
             VITE_SUPABASE_URL="YOUR_SUPABASE_URL"
             VITE_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
             ```
-        -   Run the database migration: `supabase/migrations/20241229_create_todos_table.sql`
+        -   Run the database migration: `supabase/migrations/20250701_create_todos_table.sql`
 
 ## Running the Project
 
