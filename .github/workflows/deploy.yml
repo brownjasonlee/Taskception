@@ -51,10 +51,10 @@ jobs:
         continue-on-error: true
       
       # Fallback cache for when GitHub cache service has issues
-      # Pinned to commit SHA for security (actions/cache v4.0.1) 
+      # Using v4 tag - required due to GitHub's deprecation policy for cache actions
       - name: Cache node modules (fallback)
         if: failure()
-        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319
+        uses: actions/cache@v4
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}

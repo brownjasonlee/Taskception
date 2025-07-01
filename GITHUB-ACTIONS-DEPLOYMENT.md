@@ -13,6 +13,7 @@ This repository now includes a secure GitHub Actions workflow for automatically 
   - `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2)
   - `actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af` (v4.1.0)
   - `actions/configure-pages@v5` (v5.0.0 - uses tag for compatibility)
+  - `actions/cache@v4` (v4.x - uses tag due to GitHub deprecation policy)
   - `actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa` (v3.0.1)
   - `actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e` (v4.0.5)
 
@@ -158,6 +159,7 @@ When updating GitHub Actions, always:
 4. **Database Connection**: App works without database - check Supabase secrets if persistence needed
 5. **Configure Pages Error**: If you see "TypeError: error must be an instance of Error" in the Configure Pages step, this is a known issue with SHA-pinned `configure-pages` action - the workflow uses `@v5` tag instead for compatibility
 6. **Cache Service Warnings**: "Failed to save/restore: Cache service responded with 503" are temporary GitHub service issues and don't affect deployment success
+7. **Deprecated Cache Action**: If you see errors about deprecated `actions/cache` versions, ensure you're using `@v4` tag (not SHA) due to GitHub's specific deprecation policy for cache actions
 
 ### Debug Steps
 1. Check the Actions tab for detailed logs
