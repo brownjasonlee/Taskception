@@ -4,6 +4,11 @@ import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { useTheme } from './hooks/useTheme';
 import { useTodos } from './hooks/useTodos';
 
+// Import dev utils in development mode
+if (import.meta.env.DEV) {
+  import('./lib/db-dev-utils');
+}
+
 function App() {
   const { isDark, toggleTheme } = useTheme();
   const { 
