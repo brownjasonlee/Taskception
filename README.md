@@ -1,12 +1,12 @@
 # Taskception
 
-A modern, responsive task management application built with React, Vite, and TypeScript, featuring nested tasks and drag-and-drop reordering. Data persistence is handled by Supabase.
+A modern, responsive task management application built with React, Vite, and TypeScript, featuring nested tasks and drag-and-drop reordering. Includes a flexible database framework with graceful fallback to local storage when offline.
 
 ## Features
 
 - **Nested Task Items**: Organize tasks hierarchically.
 - **Drag-and-Drop Reordering**: Intuitively rearrange tasks and subtasks using `dnd-kit`.
-- **Persistent Storage**: All data is securely stored and managed via Supabase.
+- **Flexible Data Storage**: Auto-scaling database framework with graceful fallback to local storage.
 - **Light/Dark Theme Toggle**: Switch between different visual themes for comfortable viewing.
 - **Responsive Design**: Optimized for various screen sizes using Tailwind CSS.
 
@@ -34,15 +34,17 @@ To get the project up and running on your local machine, follow these steps:
     npm install
     ```
 
-3.  **Set up Supabase**: This project uses Supabase for its backend. You'll need to set up a new Supabase project.
-    -   Go to [Supabase](https://supabase.com/) and create a new project.
-    -   Navigate to `Project Settings > API` to find your `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
-    -   Rename `.env.example` to `.env.local` in the root of your project and populate it with your Supabase credentials:
-        ```
-        VITE_SUPABASE_URL="YOUR_SUPABASE_URL"
-        VITE_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
-        ```
-    -   Run the Supabase migrations. The database schema is defined in `supabase/migrations/20250629213648_hidden_cliff.sql`.
+3.  **Set up Supabase** (Optional): This project uses a database framework that gracefully falls back to local storage.
+    -   **For local-only usage**: Skip this step - the app will work with local storage
+    -   **For database persistence**: 
+        -   Go to [Supabase](https://supabase.com/) and create a new project
+        -   Navigate to `Project Settings > API` to find your `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+        -   Create `.env.local` in the root of your project:
+            ```
+            VITE_SUPABASE_URL="YOUR_SUPABASE_URL"
+            VITE_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
+            ```
+        -   Run the database migration: `supabase/migrations/20241229_create_todos_table.sql`
 
 ## Running the Project
 
