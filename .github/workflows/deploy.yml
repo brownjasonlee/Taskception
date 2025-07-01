@@ -54,9 +54,9 @@ jobs:
         run: npm ci
       
       # Configure GitHub Pages
-      # Pinned to commit SHA for security (actions/configure-pages v5.0.0)
+      # Using v5 tag - this action requires the tag format for proper functionality
       - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+        uses: actions/configure-pages@v5
         with:
           static_site_generator: custom
       
