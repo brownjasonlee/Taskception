@@ -183,6 +183,13 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      
+      // Check if the todo is empty and should be removed
+      if (editTitle.trim() === "") {
+        removeTodoIfEmpty(todo.id, editTitle);
+        return;
+      }
+      
       // Save current changes - only update if there's content
       if (editTitle.trim() !== "" && editTitle !== todo.title) {
         onUpdate(todo.id, editTitle.trim());
@@ -195,6 +202,13 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       }
     } else if (e.key === 'Tab') {
       e.preventDefault();
+      
+      // Check if the todo is empty and should be removed
+      if (editTitle.trim() === "") {
+        removeTodoIfEmpty(todo.id, editTitle);
+        return;
+      }
+      
       // Save current changes - only update if there's content
       if (editTitle.trim() !== "" && editTitle !== todo.title) {
         onUpdate(todo.id, editTitle.trim());
